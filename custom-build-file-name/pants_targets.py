@@ -2,6 +2,6 @@
 # file is from the targets inside it, so updates work here too.
 python_requirement(
     name="rich",
-    requirements=["rich==13.5.0"],
+    requirements=["rich==15.0.0"],
     resolve="tools",
 )
