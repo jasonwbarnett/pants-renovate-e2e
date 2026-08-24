@@ -1,7 +1,7 @@
 # A single requirement, the simplest case.
 python_requirement(
     name="click",
-    requirements=["click==8.0.0"],
+    requirements=["click==8.4.2"],
     resolve="app",
 )
 
