@@ -1,0 +1,7 @@
+python_requirement(
+    name="vcs",
+    requirements=[
+        "example-pkg @ git+https://github.com/pypa/sampleproject@v3.0.0",
+    ],
+    resolve="tools",
+)

@@ -1,0 +1,6 @@
+# This file is a placeholder: it only has to exist for Renovate to see that
+# the poetry manager owns a lock file beside this pyproject.toml.
+[metadata]
+lock-version = "2.0"
+python-versions = "^3.11"
+content-hash = "0000000000000000000000000000000000000000000000000000000000000000"

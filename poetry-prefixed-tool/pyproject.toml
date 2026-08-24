@@ -1,0 +1,12 @@
+# `[tool.poetry-dynamic-versioning]` is not Poetry. Reading this file as
+# Poetry would lose the `[tool.uv]` dependencies below.
+[project]
+name = "not-poetry"
+version = "0.1.0"
+dependencies = ["pyyaml>=6.0,<7"]
+
+[tool.uv]
+dev-dependencies = ["coverage>=7.3.0"]
+
+[tool.poetry-dynamic-versioning]
+enable = true

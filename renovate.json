@@ -1,0 +1,12 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["pants", "pip_requirements", "pep621", "poetry"],
+  "pants": {
+    "managerFilePatterns": ["/(^|/)pants_targets\\.py$/"]
+  },
+  "separateMinorPatch": true,
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 0,
+  "dependencyDashboard": true
+}

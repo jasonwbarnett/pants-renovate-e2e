@@ -1,0 +1,136 @@
+name: renovate-e2e
+
+# Runs Renovate from the branch that adds the Pants manager, against this
+# repository, so every code path of the manager is exercised in public.
+#
+# The `extract` job is the test: it asserts one expectation per code path and
+# fails if any of them stops working.
+# The `open-prs` job is the demonstration: it runs Renovate for real, so the
+# pull requests it opens show the file edits it makes.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      renovate_ref:
+        description: Branch of altana-ai/renovate to run
+        default: feat/pants-manager
+      open_prs:
+        description: Also run Renovate for real, opening pull requests
+        type: boolean
+        default: false
+
+env:
+  RENOVATE_REPO: altana-ai/renovate
+  RENOVATE_REF: ${{ inputs.renovate_ref || 'feat/pants-manager' }}
+
+permissions:
+  contents: read
+
+jobs:
+  extract:
+    name: extract and assert
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v5
+
+      - name: Check out Renovate with the Pants manager
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.RENOVATE_REPO }}
+          ref: ${{ env.RENOVATE_REF }}
+          path: .renovate-src
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: .renovate-src/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .renovate-src/.nvmrc
+          cache: pnpm
+          cache-dependency-path: .renovate-src/pnpm-lock.yaml
+
+      - name: Install Renovate dependencies
+        working-directory: .renovate-src
+        run: pnpm install --frozen-lockfile
+
+      # `--platform=local` runs against the checkout, writes nothing, and needs
+      # no credentials. The JSON report is what the assertions read.
+      - name: Extract dependencies
+        env:
+          RENOVATE_PLATFORM: local
+          RENOVATE_REPORT_TYPE: file
+          RENOVATE_REPORT_PATH: ${{ github.workspace }}/report.json
+          LOG_LEVEL: debug
+        run: node .renovate-src/lib/renovate.ts --dry-run=extract
+
+      - name: Assert every Pants code path was extracted
+        run: python3 scripts/assert_extraction.py report.json
+
+      # Extraction alone would not catch an update that silently fails, so this
+      # applies one to every dependency through the same code path Renovate
+      # uses when it writes a branch.
+      - name: Assert every dependency can be updated in place
+        run: node scripts/assert_updates.mjs .renovate-src
+
+      - name: Upload the extraction report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extraction-report
+          path: report.json
+
+  open-prs:
+    name: open pull requests
+    if: github.event_name == 'schedule' || inputs.open_prs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v5
+
+      - name: Check out Renovate with the Pants manager
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ env.RENOVATE_REPO }}
+          ref: ${{ env.RENOVATE_REF }}
+          path: .renovate-src
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: .renovate-src/package.json
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .renovate-src/.nvmrc
+          cache: pnpm
+          cache-dependency-path: .renovate-src/pnpm-lock.yaml
+
+      - name: Install Renovate dependencies
+        working-directory: .renovate-src
+        run: pnpm install --frozen-lockfile
+
+      # The token the workflow already has is enough to open pull requests on
+      # this repository, so this needs no secret of its own.
+      - name: Run Renovate
+        env:
+          RENOVATE_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_GIT_AUTHOR: 'renovate-e2e <bot@example.com>'
+          RENOVATE_ONBOARDING: 'false'
+          RENOVATE_REQUIRE_CONFIG: optional
+          LOG_LEVEL: debug
+        run: node .renovate-src/lib/renovate.ts

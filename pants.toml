@@ -1,0 +1,16 @@
+[GLOBAL]
+pants_version = "2.28.0"
+backend_packages = [
+  "pants.backend.python",
+  "pants.backend.experimental.python",
+]
+build_patterns = ["BUILD", "BUILD.*", "pants_targets.py"]
+
+[python]
+interpreter_constraints = [">=3.11,<3.13"]
+enable_resolves = true
+default_resolve = "app"
+
+[python.resolves]
+app = "locks/app.lock"
+tools = "locks/tools.lock"

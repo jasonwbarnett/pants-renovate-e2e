@@ -1,0 +1,52 @@
+# A single requirement, the simplest case.
+python_requirement(
+    name="click",
+    requirements=["click==8.0.0"],
+    resolve="app",
+)
+
+# Several requirements in one target, one with extras.
+python_requirement(
+    name="web",
+    requirements=[
+        "requests[security]==2.28.0",
+        "urllib3>=1.26,<2",
+    ],
+    resolve="app",
+)
+
+# A requirement with no version at all.
+python_requirement(
+    name="types-protobuf",
+    requirements=["types-protobuf"],
+    resolve="app",
+)
+
+# The same dist pinned once per resolve: two targets, one requirement
+# string. Renovate has to update each occurrence on its own.
+python_requirement(
+    name="pytest-app",
+    requirements=["pytest==7.0.0"],
+    resolve="app",
+)
+
+python_requirement(
+    name="pytest-tools",
+    requirements=["pytest==7.0.0"],
+    resolve="tools",
+)
+
+# `parametrize` puts one requirement in both resolves at once.
+python_requirement(
+    name="packaging",
+    requirements=["packaging==23.0"],
+    resolve=parametrize("app", "tools"),
+)
+
+# Fields that must never be read as requirements.
+python_requirements(
+    name="ignored-fields",
+    source="ignored-requirements.txt",
+    module_mapping={"pillow": ["PIL"]},
+    overrides={"fastapi": {"dependencies": ["orjson==3.9.0"]}},
+)
