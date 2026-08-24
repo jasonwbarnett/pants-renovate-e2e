@@ -51,7 +51,7 @@ EXPECTED: list[tuple[str, str, str, str]] = [
     # a build file named by `build_patterns`
     ("pants", "custom-build-file-name/pants_targets.py", "rich", "python_requirement"),
     # a VCS requirement keeps its git datasource
-    ("pants", "vcs/BUILD.pants", "sampleproject", "python_requirement"),
+    ("pants", "vcs/BUILD.pants", "black", "python_requirement"),
     # a Poetry project with a lock file is left to the poetry manager, which can
     # regenerate the lock file
     ("poetry", "poetry-locked/pyproject.toml", "jinja2", "dependencies"),

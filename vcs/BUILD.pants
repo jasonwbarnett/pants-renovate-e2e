@@ -1,7 +1,7 @@
 python_requirement(
     name="vcs",
     requirements=[
-        "example-pkg @ git+https://github.com/pypa/sampleproject@v2.0.0",
+        "black @ git+https://github.com/psf/black@24.1.0",
     ],
     resolve="tools",
 )
