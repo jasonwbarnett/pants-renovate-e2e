@@ -2,7 +2,7 @@
 name = "pep621-example"
 version = "0.1.0"
 requires-python = ">=3.11,<3.13"
-dependencies = ["typing-extensions==4.7.0"]
+dependencies = ["typing-extensions==4.16.0"]
 
 [dependency-groups]
 test = ["pytest-mock==3.10.0"]
