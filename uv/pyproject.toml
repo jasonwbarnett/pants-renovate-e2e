@@ -4,4 +4,4 @@ version = "0.1.0"
 dependencies = ["httpx>=0.24.0,<0.28.0"]
 
 [tool.uv]
-dev-dependencies = ["pytest-asyncio==0.21.0"]
+dev-dependencies = ["pytest-asyncio==1.4.0"]
