@@ -5,6 +5,13 @@
   "pants": {
     "managerFilePatterns": ["/(^|/)pants_targets\\.py$/"]
   },
+  "packageRules": [
+    {
+      "description": "The interpreter constraint is not a third-party dependency",
+      "matchPackageNames": ["python", "containerbase/python-prebuild"],
+      "enabled": false
+    }
+  ],
   "separateMinorPatch": true,
   "prHourlyLimit": 0,
   "prConcurrentLimit": 0,
