@@ -39,7 +39,7 @@ python_requirement(
 # `parametrize` puts one requirement in both resolves at once.
 python_requirement(
     name="packaging",
-    requirements=["packaging==23.0"],
+    requirements=["packaging==23.2"],
     resolve=parametrize("app", "tools"),
 )
 
