@@ -58,6 +58,13 @@ EXPECTED: list[tuple[str, str, str, str]] = [
     # a requirements file with hashes is left to pip_requirements, which
     # refreshes them with `hashin`
     ("pip_requirements", "hashed/hashed-requirements.txt", "six", ""),
+    # a generator target with no arguments at all: the documented form
+    ("pants", "no-arguments/requirements.txt", "markupsafe", "python_requirements"),
+    ("pants", "no-arguments-poetry/pyproject.toml", "filelock", "dependencies"),
+    # a requirement written as adjacent string literals, which Python joins
+    ("pants", "python-forms/BUILD.pants", "sqlparse", "python_requirement"),
+    # a requirement in a tuple rather than a list
+    ("pants", "python-forms/BUILD.pants", "wrapt", "python_requirement"),
 ]
 
 # (manager, packageFile) pairs that must NOT appear.
@@ -78,6 +85,7 @@ def main(report_path: str) -> int:
     repositories = report.get("repositories", {})
 
     found: set[tuple[str, str, str, str]] = set()
+    raw_deps: list[dict] = []
     lock_claims: list[tuple[str, str, list[str]]] = []
     pytest_pins = 0
 
@@ -92,6 +100,7 @@ def main(report_path: str) -> int:
                     if dep_name is None:
                         continue  # interpreter constraint, not a requirement
                     found.add((manager, name, dep_name, dep.get("depType") or ""))
+                    raw_deps.append({**dep, "packageFile": name, "manager": manager})
                     if (
                         manager == "pants"
                         and name == "inline/BUILD.pants"
@@ -108,6 +117,19 @@ def main(report_path: str) -> int:
     for manager, package_file in FORBIDDEN:
         if any(m == manager and f == package_file for m, f, _, _ in found):
             failures.append(f"should have been superseded: ({manager}, {package_file})")
+
+    # A requirement split across adjacent literals has to come back joined,
+    # with its version: without the version there is nothing to update.
+    joined = [
+        d
+        for d in raw_deps
+        if d.get("packageFile") == "python-forms/BUILD.pants"
+        and d.get("depName") == "sqlparse"
+    ]
+    if not joined or joined[0].get("currentValue") != ">=0.4.0,<0.5.0":
+        failures.append(
+            f"sqlparse should be joined to >=0.4.0,<0.5.0, got {joined}"
+        )
 
     # Both targets that pin pytest have to be extracted, or only one of them
     # would ever be updated.

@@ -1,0 +1,16 @@
+# Python joins adjacent string literals, so this is one requirement.
+python_requirement(
+    name="joined",
+    requirements=[
+        "sqlparse"
+        ">=0.4.0,<0.5.0",
+    ],
+    resolve="tools",
+)
+
+# Pants accepts any iterable of strings, not only a list.
+python_requirement(
+    name="tuple",
+    requirements=("wrapt==1.14.0",),
+    resolve="tools",
+)

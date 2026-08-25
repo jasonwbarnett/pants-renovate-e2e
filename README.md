@@ -26,6 +26,8 @@ Two runs prove different things:
 | `named-source/`                            | `python_requirements(source=...)`           | A source named by the target                                                       |
 | `pep621/`                                  | `python_requirements(source=pyproject.toml)` | A PEP 621 source, including a PEP 735 dependency group                             |
 | `poetry/`                                  | `poetry_requirements`                       | A Poetry source, including a Poetry dependency group                               |
+| `no-arguments/`, `no-arguments-poetry/`     | `python_requirements()`, `poetry_requirements()` | A generator target with no arguments at all, the documented form, which relies entirely on the field defaults |
+| `python-forms/`                            | `python_requirement`                        | A requirement written as adjacent string literals, which Python joins, and one written in a tuple |
 | `hashed/`                                  | `python_requirements` over a `--hash=` file  | A requirements file whose hashes must be refreshed when a pin changes, so it is left to `pip_requirements` |
 | `poetry-locked/`                           | `poetry_requirements` plus `poetry.lock`     | A source whose lock file this manager cannot regenerate, so the `poetry` manager keeps it. This one is checked by the assertions rather than by a pull request, because regenerating a Poetry lock file needs Poetry installed |
 | `uv/`                                      | `uv_requirements`                           | `[tool.uv] dev-dependencies`, and the `[project]` dependencies of the same file    |
