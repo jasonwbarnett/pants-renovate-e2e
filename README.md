@@ -189,3 +189,11 @@ empty, so a path with no file in the copy passed as reset. The general form is
 worth keeping alongside the first: **a comparison is only a check if both sides
 can be obtained independently. If the same failure produces both, it proves
 nothing.**
+
+The bed-revision gate resolves what it is given through the bed rather than
+comparing it as a string, so the short SHA from `git log --oneline` — the only
+form anyone has to hand — is accepted, along with a tag or a branch. A gate that
+rejects the value you would naturally give it gets deleted rather than
+lengthened. Resolving it there also separates two failures that used to look
+alike: a revision that is not in that repository at all now says so, instead of
+reading as the wrong revision.
