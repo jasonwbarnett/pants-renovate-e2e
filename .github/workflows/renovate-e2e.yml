@@ -52,6 +52,17 @@ jobs:
       - name: Check out this repository
         uses: actions/checkout@v5
 
+      - name: Check the ref is usable
+        # A shallow fetch of an abbreviated SHA fails with nothing but `git
+        # failed with exit code 1`, which says nothing about the cause. I sent
+        # a short SHA twice before writing this.
+        run: |
+          if [[ "$RENOVATE_REF" =~ ^[0-9a-f]{7,39}$ ]]; then
+            echo "::error::RENOVATE_REF is an abbreviated SHA ($RENOVATE_REF)."
+            echo "::error::The checkout is shallow, so it needs a full 40-character SHA or a branch name."
+            exit 1
+          fi
+
       - name: Check out Renovate with the Pants manager
         uses: actions/checkout@v5
         with:
@@ -118,6 +129,17 @@ jobs:
     steps:
       - name: Check out this repository
         uses: actions/checkout@v5
+
+      - name: Check the ref is usable
+        # A shallow fetch of an abbreviated SHA fails with nothing but `git
+        # failed with exit code 1`, which says nothing about the cause. I sent
+        # a short SHA twice before writing this.
+        run: |
+          if [[ "$RENOVATE_REF" =~ ^[0-9a-f]{7,39}$ ]]; then
+            echo "::error::RENOVATE_REF is an abbreviated SHA ($RENOVATE_REF)."
+            echo "::error::The checkout is shallow, so it needs a full 40-character SHA or a branch name."
+            exit 1
+          fi
 
       - name: Check out Renovate with the Pants manager
         uses: actions/checkout@v5
