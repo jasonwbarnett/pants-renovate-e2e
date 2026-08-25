@@ -1,0 +1,7 @@
+# This repository tells Renovate that `*.build.toml` names a build file, and the
+# option adds to the default rather than replacing it, so the name of this
+# source is covered by a pattern too. It is still claimed and updated: the
+# target is what says this file is a source, and each dependency carries that
+# reading through to the point where the update is written, so nothing has to
+# guess from the name later.
+python_requirements(name="reqs", source="constraints.build.toml")

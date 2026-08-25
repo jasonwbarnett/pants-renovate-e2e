@@ -80,17 +80,25 @@ which is what the earlier name-based check got wrong.
 ## What a green run does not prove
 
 The assertions here are checked by breaking the manager one change at a time and
-requiring that at least one of the two scripts goes red. 32 such changes are
-tested; 30 are caught. The two that are not:
+requiring that at least one of the two scripts goes red. 38 such changes are
+tested; 34 are caught. The four that are not, and why:
 
-- **Reading the pattern list as a whole instead of one pattern at a time.**
-  This only shows up when the list holds a negated pattern, and a negated
-  pattern makes `getMatchingFiles` hand this manager every file that is not
-  excluded, which would make every other expectation here meaningless. Covered
-  by a unit test instead.
-- **Loosening the build file name check that applies when no config is passed.**
-  Every path Renovate itself takes passes a config, so this fallback cannot be
-  reached from a run. Covered by unit tests instead.
+- **Reading the pattern list as a whole instead of one pattern at a time.** Only
+  observable when the list holds a negated pattern, and a negation makes
+  `getMatchingFiles` hand this manager every file that is not excluded, which
+  would make every other expectation here meaningless. Covered by a unit test.
+- **Loosening the build-file-name test where `isBuildFile` falls back to it**,
+  and **removing the pattern branch of `isBuildFile` entirely.** Both are
+  unreachable in a real run for the same reason: extraction records how it read
+  each file on the dependency, and the confirmation reads that record, so
+  neither the name nor the patterns are consulted on any path Renovate takes.
+  They remain as fallbacks for a caller that passes neither, and unit tests
+  cover them. The production-reachable use of the name test — refusing a source
+  that Pants itself would read as a build file — is a separate mutation, and it
+  is caught.
+- **Widening the default `managerFilePatterns`.** This one is not a gap: a wider
+  default only hands the manager more files, and a file that is not a build file
+  parses to no targets and produces nothing. There is no defect to catch.
 
 Both are stated here rather than left implicit, because the point of this
 repository is that a green run means something specific.
@@ -101,3 +109,12 @@ report, so the assertions were checked against whatever report an earlier run
 had left behind. The workflow now deletes the report before the run and requires
 a non-empty one after it, and `assert_extraction.py` refuses a report that
 describes no dependencies rather than trusting it.
+
+And a green run used to be possible against an upgrade Renovate does not build.
+`assert_updates.mjs` assembled the upgrade by hand, including
+`managerFilePatterns` — which Renovate strips before the branch stage, because
+it is a repository-stage option. So a build file under a configured name passed
+here and failed in production on every run. The script now spreads the whole
+dependency the way `flattenUpdates` does and passes the result through
+`filterConfig(upgrade, 'branch')`, so it can only test the upgrade shape that
+actually reaches auto-replace.

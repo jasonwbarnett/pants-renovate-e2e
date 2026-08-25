@@ -73,20 +73,13 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
     # must not be claimed instead (see FORBIDDEN)
     # a pip requirements file under a `.toml` name
     ("pants", "misnamed-toml/constraints.toml", "zipp", "python_requirements", "==3.8.0"),
-    # two literals with an expression between them are two requirements
+    # the neighbour of an abandoned element is still a requirement
     (
         "pants",
         "expression-requirements/BUILD.pants",
-        "decorator",
+        "chardet",
         "python_requirement",
-        "==5.1.0",
-    ),
-    (
-        "pants",
-        "expression-requirements/BUILD.pants",
-        "decorator",
-        "python_requirement",
-        "==5.1.1",
+        "==5.2.0",
     ),
     # a specifier split across two literals: reported, but not updatable
     (
@@ -110,6 +103,15 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
     ("pants", "hashed-unmatched/constraints.txt", "six", "python_requirements", "==1.16.0"),
     # a build file whose name looks like a requirements file
     ("pants", "custom-build-ext/app.build.toml", "rich", "python_requirement", "==13.4.0"),
+    # ...and a source whose name a configured pattern also covers, which is
+    # claimed rather than refused because the target says what it is
+    (
+        "pants",
+        "pattern-covered-source/constraints.build.toml",
+        "sniffio",
+        "python_requirements",
+        "==1.3.0",
+    ),
 ]
 
 # (packageFile, depName) -> fields that are load-bearing for that fixture,
@@ -137,6 +139,17 @@ DEP_FIELDS: dict[tuple[str, str], dict[str, object]] = {
         "skipReason": None,
         "replaceString": "cachetools>=1.0,<2.0",
     },
+    # How the file was read is recorded on the dependency, because the option
+    # that would answer it later is stripped before the update is written.
+    ("custom-build-ext/app.build.toml", "rich"): {
+        "managerData": {"pantsReadAs": "buildFile"},
+    },
+    ("pattern-covered-source/constraints.build.toml", "sniffio"): {
+        "managerData": {"pantsReadAs": "source"},
+    },
+    ("default-source/requirements.txt", "idna"): {
+        "managerData": {"pantsReadAs": "source"},
+    },
 }
 
 # (manager, packageFile, depName) triples that must NOT appear. A name that is
@@ -150,6 +163,9 @@ FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
     ("pants", "expression-requirements/BUILD.pants", "starlette"),
     ("pants", "expression-requirements/BUILD.pants", "django"),
     ("pants", "expression-requirements/BUILD.pants", "pyarrow"),
+    # neither arm of a conditional: Pants only ever holds one of them
+    ("pants", "expression-requirements/BUILD.pants", "decorator"),
+    ("pants", "expression-requirements/BUILD.pants", "orjson"),
     # a fenced example in a documentation file is not a target, and the file it
     # names is not a source
     ("pants", "docs/BUILD.md", "flask"),
@@ -176,9 +192,10 @@ FORBIDDEN: list[tuple[str, str]] = [
     # a hashed file under a name `pip_requirements` does not claim belongs to
     # nobody else, so that manager must not report it either
     ("pip_requirements", "hashed-unmatched/constraints.txt"),
-    # a source under a name the configured patterns call a build file: claiming
-    # it would fail every update to it, so it is refused with a warning
-    ("pants", "refused-source/constraints.build.toml"),
+    # a source Pants itself would read as a build file: a contradiction in the
+    # repository, so neither file is claimed
+    ("pants", "source-named-build/BUILD.txt"),
+    ("pants", "source-named-build/BUILD.pants"),
 ]
 
 

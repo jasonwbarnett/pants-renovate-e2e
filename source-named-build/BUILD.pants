@@ -1,0 +1,5 @@
+# `BUILD.txt` is a name Pants' own `build_patterns` cover, so Pants reads that
+# file as a build file rather than as the source this target claims it is. That
+# is a contradiction in the repository, not something to resolve by picking a
+# side, so Renovate warns and claims neither file.
+python_requirements(name="reqs", source="BUILD.txt")

@@ -4,22 +4,25 @@
 //
 // Usage: node scripts/assert_updates.mjs <path-to-renovate-checkout>
 
-import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 
-const renovateSrc = resolve(process.argv[2] ?? '.renovate-src');
+const renovateSrc = resolve(process.argv[2] ?? ".renovate-src");
 const repoDir = process.cwd();
 
-const { GlobalConfig } = await import(
-  `${renovateSrc}/lib/config/global.ts`
-);
+const { GlobalConfig } = await import(`${renovateSrc}/lib/config/global.ts`);
 const { extractAllPackageFiles, extractPackageFile } = await import(
   `${renovateSrc}/lib/modules/manager/pants/index.ts`
 );
 const { doAutoReplace } = await import(
   `${renovateSrc}/lib/workers/repository/update/branch/auto-replace.ts`
 );
+// Renovate filters every update down to the branch stage before it reaches
+// auto-replace, which drops repository-stage options such as
+// `managerFilePatterns`. Building the upgrade by hand and skipping that filter
+// is how this script passed while the same update failed in production.
+const { filterConfig } = await import(`${renovateSrc}/lib/config/index.ts`);
 
 GlobalConfig.set({ localDir: repoDir });
 
@@ -28,9 +31,11 @@ GlobalConfig.set({ localDir: repoDir });
 // the repository's half, the routing cannot know that a build file named
 // `app.build.toml` is one; without the default half, it cannot know that
 // `BUILD.pants` is.
-const { defaultConfig } = await import(`${renovateSrc}/lib/modules/manager/pants/index.ts`);
+const { defaultConfig } = await import(
+  `${renovateSrc}/lib/modules/manager/pants/index.ts`
+);
 const repoConfig = JSON.parse(
-  readFileSync(resolve(repoDir, 'renovate.json'), 'utf8'),
+  readFileSync(resolve(repoDir, "renovate.json"), "utf8"),
 ).pants;
 const managerConfig = {
   ...repoConfig,
@@ -41,11 +46,11 @@ const managerConfig = {
 };
 
 const buildFiles = execFileSync(
-  'git',
-  ['ls-files', '*BUILD.pants', '*pants_targets.py', '*.build.toml'],
-  { cwd: repoDir, encoding: 'utf8' },
+  "git",
+  ["ls-files", "*BUILD.pants", "*pants_targets.py", "*.build.toml"],
+  { cwd: repoDir, encoding: "utf8" },
 )
-  .split('\n')
+  .split("\n")
   .filter(Boolean);
 
 const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
@@ -56,19 +61,21 @@ const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
 // two shows up: a file the walk skips and this one reads is a file Renovate
 // would offer to edit and then fail on.
 const proseFiles = execFileSync(
-  'git',
-  ['ls-files', '*BUILD.md', '*BUILD.rst', '*BUILD.markdown'],
-  { cwd: repoDir, encoding: 'utf8' },
+  "git",
+  ["ls-files", "*BUILD.md", "*BUILD.rst", "*BUILD.markdown"],
+  { cwd: repoDir, encoding: "utf8" },
 )
-  .split('\n')
+  .split("\n")
   .filter(Boolean);
 
 if (!proseFiles.length) {
-  failures.push('no prose build file in the repository: this check tests nothing');
+  failures.push(
+    "no prose build file in the repository: this check tests nothing",
+  );
 }
 
 for (const proseFile of proseFiles) {
-  const content = readFileSync(resolve(repoDir, proseFile), 'utf8');
+  const content = readFileSync(resolve(repoDir, proseFile), "utf8");
   const res = await extractPackageFile(content, proseFile, managerConfig);
   if (res !== null) {
     failures.push(
@@ -83,15 +90,15 @@ let checked = 0;
 /** A new value of the same shape, so the range stays valid. */
 function bump(currentValue) {
   if (/^==/.test(currentValue)) {
-    return '==99.9.9';
+    return "==99.9.9";
   }
   if (/^\^/.test(currentValue)) {
-    return '^99.9.9';
+    return "^99.9.9";
   }
-  if (currentValue.includes(',')) {
-    return currentValue.replace(/[\d.]+/, '99.9.9');
+  if (currentValue.includes(",")) {
+    return currentValue.replace(/[\d.]+/, "99.9.9");
   }
-  return currentValue.replace(/[\d.]+$/, '99.9.9');
+  return currentValue.replace(/[\d.]+$/, "99.9.9");
 }
 
 // Every dependency this repository declares and Renovate can update. A
@@ -99,90 +106,101 @@ function bump(currentValue) {
 // script testing less and still exiting zero.
 const EXPECTED_UPDATES = 31;
 
-
 for (const packageFile of packageFiles) {
-  const original = readFileSync(resolve(repoDir, packageFile.packageFile), 'utf8');
+  const original = readFileSync(
+    resolve(repoDir, packageFile.packageFile),
+    "utf8",
+  );
 
-  for (const [depIndex, dep] of packageFile.deps.entries()) {
-    if (!dep.currentValue || dep.skipReason || dep.depName === 'python') {
-      continue; // nothing to write, or not a requirement Renovate updates
+  // `doAutoReplace` writes the file it updates. Restored in a `finally` so that
+  // a throw anywhere in the loop cannot leave the repository mutated for the
+  // next run to measure.
+  try {
+    for (const [depIndex, dep] of packageFile.deps.entries()) {
+      if (!dep.currentValue || dep.skipReason || dep.depName === "python") {
+        continue; // nothing to write, or not a requirement Renovate updates
+      }
+
+      const newValue = bump(dep.currentValue);
+      // The whole dependency, the way `flattenUpdates` merges it into the
+      // branch config. Naming a few fields by hand is how this script came to
+      // hide a field the manager depends on.
+      const upgrade = {
+        ...managerConfig,
+        ...dep,
+        manager: "pants",
+        packageFile: packageFile.packageFile,
+        newValue,
+        depIndex,
+      };
+
+      let updated;
+      try {
+        updated = await doAutoReplace(
+          filterConfig(upgrade, "branch"),
+          original,
+          false,
+        );
+      } catch (err) {
+        failures.push(
+          `${packageFile.packageFile}: ${dep.depName} ${dep.currentValue} -> ${newValue} threw ${err.message}`,
+        );
+        continue;
+      }
+
+      checked += 1;
+
+      if (updated === original) {
+        failures.push(
+          `${packageFile.packageFile}: ${dep.depName} ${dep.currentValue} -> ${newValue} left the file unchanged`,
+        );
+        continue;
+      }
+
+      if (!updated.includes(newValue)) {
+        failures.push(
+          `${packageFile.packageFile}: ${dep.depName} update did not write ${newValue}`,
+        );
+        continue;
+      }
+
+      // Exactly one line may move, and it has to be a line that held the text
+      // being replaced: a count alone would pass even if the edit landed on an
+      // unrelated line.
+      const originalLines = original.split("\n");
+      const updatedLines = updated.split("\n");
+      const changed = originalLines
+        .map((line, index) => [index, line])
+        .filter(([index, line]) => line !== updatedLines[index]);
+
+      if (changed.length !== 1) {
+        failures.push(
+          `${packageFile.packageFile}: ${dep.depName} changed ${changed.length} lines, expected 1`,
+        );
+        continue;
+      }
+
+      const [changedIndex, changedLine] = changed[0];
+      const anchor = dep.replaceString ?? dep.currentValue;
+      if (!changedLine.includes(anchor)) {
+        failures.push(
+          `${packageFile.packageFile}: ${dep.depName} changed line ${changedIndex}, which does not hold ${anchor}`,
+        );
+      }
+      if (!updatedLines[changedIndex].includes(newValue)) {
+        failures.push(
+          `${packageFile.packageFile}: ${dep.depName} did not write ${newValue} on the line it changed`,
+        );
+      }
     }
-
-    const newValue = bump(dep.currentValue);
-    const upgrade = {
-      ...managerConfig,
-      manager: 'pants',
-      packageFile: packageFile.packageFile,
-      depName: dep.depName,
-      currentValue: dep.currentValue,
-      replaceString: dep.replaceString,
-      depType: dep.depType,
-      newValue,
-      depIndex,
-    };
-
-    let updated;
-    try {
-      updated = await doAutoReplace(upgrade, original, false);
-    } catch (err) {
-      failures.push(
-        `${packageFile.packageFile}: ${dep.depName} ${dep.currentValue} -> ${newValue} threw ${err.message}`,
-      );
-      continue;
-    }
-
-    checked += 1;
-
-    if (updated === original) {
-      failures.push(
-        `${packageFile.packageFile}: ${dep.depName} ${dep.currentValue} -> ${newValue} left the file unchanged`,
-      );
-      continue;
-    }
-
-    if (!updated.includes(newValue)) {
-      failures.push(
-        `${packageFile.packageFile}: ${dep.depName} update did not write ${newValue}`,
-      );
-      continue;
-    }
-
-    // Exactly one line may move, and it has to be a line that held the text
-    // being replaced: a count alone would pass even if the edit landed on an
-    // unrelated line.
-    const originalLines = original.split('\n');
-    const updatedLines = updated.split('\n');
-    const changed = originalLines
-      .map((line, index) => [index, line])
-      .filter(([index, line]) => line !== updatedLines[index]);
-
-    if (changed.length !== 1) {
-      failures.push(
-        `${packageFile.packageFile}: ${dep.depName} changed ${changed.length} lines, expected 1`,
-      );
-      continue;
-    }
-
-    const [changedIndex, changedLine] = changed[0];
-    const anchor = dep.replaceString ?? dep.currentValue;
-    if (!changedLine.includes(anchor)) {
-      failures.push(
-        `${packageFile.packageFile}: ${dep.depName} changed line ${changedIndex}, which does not hold ${anchor}`,
-      );
-    }
-    if (!updatedLines[changedIndex].includes(newValue)) {
-      failures.push(
-        `${packageFile.packageFile}: ${dep.depName} did not write ${newValue} on the line it changed`,
-      );
-    }
+  } finally {
+    writeFileSync(resolve(repoDir, packageFile.packageFile), original);
   }
-
-  // `doAutoReplace` writes the file it updates, the same as it does when
-  // Renovate builds a branch, so put the original back.
-  writeFileSync(resolve(repoDir, packageFile.packageFile), original);
 }
 
-console.log(`applied ${checked} updates across ${packageFiles.length} package files`);
+console.log(
+  `applied ${checked} updates across ${packageFiles.length} package files`,
+);
 
 if (checked !== EXPECTED_UPDATES) {
   failures.push(
@@ -191,11 +209,11 @@ if (checked !== EXPECTED_UPDATES) {
 }
 
 if (failures.length) {
-  console.log('\nFAILURES:');
+  console.log("\nFAILURES:");
   for (const failure of failures) {
     console.log(`  - ${failure}`);
   }
   process.exit(1);
 }
 
-console.log('every dependency updated in place');
+console.log("every dependency updated in place");

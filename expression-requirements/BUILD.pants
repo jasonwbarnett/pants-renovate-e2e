@@ -1,8 +1,20 @@
-# Two literals with an expression between them are two requirements. Joining
-# them would invent a version that matches nothing.
+# Python picks one arm when Pants parses this file, so the field holds one
+# string. Neither arm is reliably it, and reporting both would let a single
+# branch bump both to the same version -- leaving a conditional whose arms are
+# identical, which is still valid Python and no longer conditional on anything.
 python_requirement(
     name="conditional",
     requirements=["decorator==5.1.0" if PY39 else "decorator==5.1.1"],
+    resolve="tools",
+)
+
+# Abandoning an element must not abandon its neighbours.
+python_requirement(
+    name="conditional-with-sibling",
+    requirements=[
+        "orjson==3.9.0" if PY39 else "orjson==3.9.1",
+        "chardet==5.2.0",
+    ],
     resolve="tools",
 )
 
