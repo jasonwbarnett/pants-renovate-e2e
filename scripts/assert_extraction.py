@@ -291,6 +291,53 @@ FORBIDDEN: list[tuple[str, str]] = [
 ]
 
 
+def fixtures_still_exercise_something() -> list[str]:
+    """Every fixture directory has to hold a build file with a target in it.
+
+    A fixture asserted only by absence -- the prose refusal, the source Pants
+    reads as a build file, the source given as an expression -- passes when the
+    manager refuses the file and equally when the fixture stopped naming it. So
+    the absence assertions above can be passing on an empty room, and the
+    mutation sweep would keep reporting those refusals as covered.
+
+    Derived from the repository rather than listed, so a fixture added later is
+    covered the moment it exists. This is the shape check the derived-quantity
+    rule asks for, applied to the fixtures instead of to a number.
+    """
+    problems = []
+    for entry in sorted(Path().iterdir()):
+        if not entry.is_dir() or entry.name in {"scripts", ".git", ".github"}:
+            continue
+        targets = 0
+        for path in sorted(entry.rglob("*")):
+            if not path.is_file():
+                continue
+            text = path.read_text(errors="replace")
+            # The same four aliases the manager reads, at statement level rather
+            # than inside a string or a comment -- a fenced example in a document
+            # must not count as wiring.
+            for line in text.splitlines():
+                stripped = line.strip()
+                if stripped.startswith("#"):
+                    continue
+                if any(
+                    f"{alias}(" in stripped
+                    for alias in (
+                        "python_requirement",
+                        "python_requirements",
+                        "poetry_requirements",
+                        "uv_requirements",
+                    )
+                ):
+                    targets += 1
+        if not targets:
+            problems.append(
+                f"{entry.name}/ holds no file with a Pants target: "
+                "whatever it asserts is passing on an empty room"
+            )
+    return problems
+
+
 def main(report_path: str) -> int:
     report = json.loads(Path(report_path).read_text())
     repositories = report.get("repositories", {})
@@ -477,6 +524,8 @@ def main(report_path: str) -> int:
         failures.append(
             f"entries saying they cannot be updated are {flagged}, expected {expected_flagged}"
         )
+
+    failures.extend(fixtures_still_exercise_something())
 
     # This manager has no `updateArtifacts`, so it must never claim a lock file.
     for manager, package_file, lock_files in lock_claims:
