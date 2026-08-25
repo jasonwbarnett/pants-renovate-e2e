@@ -1,0 +1,6 @@
+# The source is not a literal, so no file can be named with confidence.
+# Falling back to the default would claim `requirements.txt`, which this
+# target does not name.
+SRC = "actual-requirements.txt"
+
+python_requirements(name="reqs", source=SRC)

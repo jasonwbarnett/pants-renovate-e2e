@@ -14,6 +14,12 @@ on:
   pull_request:
   schedule:
     - cron: '0 6 * * 1'
+  # So a change to the manager can trigger this from its own repository, rather
+  # than waiting for the weekly run:
+  #   gh api repos/jasonwbarnett/pants-renovate-e2e/dispatches \
+  #     -f event_type=manager-changed
+  repository_dispatch:
+    types: [manager-changed]
   workflow_dispatch:
     inputs:
       renovate_ref:

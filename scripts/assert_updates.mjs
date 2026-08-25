@@ -47,6 +47,11 @@ function bump(currentValue) {
   return currentValue.replace(/[\d.]+$/, '99.9.9');
 }
 
+// Every dependency this repository declares and Renovate can update. A
+// regression that stops extracting some of them would otherwise leave this
+// script testing less and still exiting zero.
+const EXPECTED_UPDATES = 28;
+
 const failures = [];
 let checked = 0;
 
@@ -96,15 +101,32 @@ for (const packageFile of packageFiles) {
       continue;
     }
 
-    // Exactly one occurrence may move: a build file can pin the same
-    // requirement in several targets, and only the target being updated
-    // should change.
-    const changedLines = original
-      .split('\n')
-      .filter((line, index) => line !== updated.split('\n')[index]);
-    if (changedLines.length !== 1) {
+    // Exactly one line may move, and it has to be a line that held the text
+    // being replaced: a count alone would pass even if the edit landed on an
+    // unrelated line.
+    const originalLines = original.split('\n');
+    const updatedLines = updated.split('\n');
+    const changed = originalLines
+      .map((line, index) => [index, line])
+      .filter(([index, line]) => line !== updatedLines[index]);
+
+    if (changed.length !== 1) {
       failures.push(
-        `${packageFile.packageFile}: ${dep.depName} changed ${changedLines.length} lines, expected 1`,
+        `${packageFile.packageFile}: ${dep.depName} changed ${changed.length} lines, expected 1`,
+      );
+      continue;
+    }
+
+    const [changedIndex, changedLine] = changed[0];
+    const anchor = dep.replaceString ?? dep.currentValue;
+    if (!changedLine.includes(anchor)) {
+      failures.push(
+        `${packageFile.packageFile}: ${dep.depName} changed line ${changedIndex}, which does not hold ${anchor}`,
+      );
+    }
+    if (!updatedLines[changedIndex].includes(newValue)) {
+      failures.push(
+        `${packageFile.packageFile}: ${dep.depName} did not write ${newValue} on the line it changed`,
       );
     }
   }
@@ -115,6 +137,12 @@ for (const packageFile of packageFiles) {
 }
 
 console.log(`applied ${checked} updates across ${packageFiles.length} package files`);
+
+if (checked !== EXPECTED_UPDATES) {
+  failures.push(
+    `applied ${checked} updates, expected ${EXPECTED_UPDATES}: a dependency this repository declares is no longer being updated`,
+  );
+}
 
 if (failures.length) {
   console.log('\nFAILURES:');

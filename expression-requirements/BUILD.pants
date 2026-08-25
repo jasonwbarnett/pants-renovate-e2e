@@ -1,0 +1,7 @@
+# Two literals with an expression between them are two requirements. Joining
+# them would invent a version that matches nothing.
+python_requirement(
+    name="conditional",
+    requirements=["decorator==5.1.0" if PY39 else "decorator==5.1.1"],
+    resolve="tools",
+)
