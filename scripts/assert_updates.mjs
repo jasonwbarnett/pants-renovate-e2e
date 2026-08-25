@@ -177,7 +177,11 @@ const claimed = Object.values(report.repositories ?? {}).flatMap((repo) =>
 // while this script's own extraction has no supersedes step and includes it.
 // Two sets of nearly the same size with different members; equality would fail
 // the first time supersedes moved one more file.
-const EXPECTED_CLAIMED = 27;
+// 25 rather than 27 since this manager stopped reporting sources it cannot
+// maintain: `hashed-unmatched/constraints.txt` now belongs to the widened
+// `pip_requirements` alone, and nothing reports
+// `locked-odd-name/poetry-project.toml`.
+const EXPECTED_CLAIMED = 25;
 if (claimed.length < EXPECTED_CLAIMED) {
   failures.push(
     `the report at ${reportPath} lists ${claimed.length} pants package files, expected at least ${EXPECTED_CLAIMED}: a truncated reference cannot fail`,

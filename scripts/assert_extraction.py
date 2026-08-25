@@ -107,22 +107,10 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
         "python_requirements",
         "==0.2.6",
     ),
-    # A locked source under a name `poetry` does not match, so nobody else
-    # reports it: skipped here, and the entry says so, which is where the
-    # `locked` half of that statement does its work.
-    (
-        "pants",
-        "locked-odd-name/poetry-project.toml",
-        "sortedcontainers",
-        "dependencies",
-        "^2.4.0",
-    ),
-    # A hashed file this manager reports as skipped, while the manager that can
-    # refresh the hashes keeps it and stays updatable. This repository widens
-    # `pip_requirements.managerFilePatterns` to cover the name, which is the
-    # configuration that makes `cannotUpdate` load-bearing: without the field
-    # being read, the skipped entry takes the file from the live one.
-    ("pants", "hashed-unmatched/constraints.txt", "six", "python_requirements", "==1.16.0"),
+    # A hashed file under a name this repository widens
+    # `pip_requirements.managerFilePatterns` to cover. Pants does not report it
+    # at all, so the manager that can refresh the hashes keeps it and stays
+    # updatable.
     ("pip_requirements", "hashed-unmatched/constraints.txt", "six", "", "==1.16.0"),
     # A lock-free Poetry file in the path-override layout. This manager keeps
     # it, with the delegate's own `path-dependency` skip inherited, and both
@@ -199,11 +187,6 @@ DEP_FIELDS: dict[tuple[str, str], dict[str, object]] = {
         "datasource": "pypi",
         "packageName": "types-protobuf",
     },
-    # a hashed file this manager cannot rewrite is reported, and skipped
-    ("hashed-unmatched/constraints.txt", "six"): {"skipReason": "unsupported"},
-    ("locked-odd-name/poetry-project.toml", "sortedcontainers"): {
-        "skipReason": "unsupported",
-    },
     ("upper-ext-source/pyproject.TOML", "sortedcollections"): {
         "managerData": {"nestedVersion": False, "pantsReadAs": "source"},
     },
@@ -271,8 +254,14 @@ FORBIDDEN: list[tuple[str, str]] = [
     ("poetry", "poetry/pyproject.toml"),
     # ...and drops pants for the file whose lock file it cannot regenerate
     ("pants", "poetry-locked/pyproject.toml"),
-    # pants never claims a hashed requirements file
+    # pants never claims a hashed requirements file, under any name, whether or
+    # not another manager matches it
     ("pants", "hashed/hashed-requirements.txt"),
+    ("pants", "hashed-unmatched/constraints.txt"),
+    # ...nor a source with a lock file beside it, even where nothing else reports
+    # the name. Reporting it would take the file from the manager that can
+    # regenerate the lock file, and that is the worse of the two outcomes.
+    ("pants", "locked-odd-name/poetry-project.toml"),
     # a target whose source is not a literal must not fall back to the default
     ("pants", "unresolved-source/requirements.txt"),
     ("pants", "unresolved-source/actual-requirements.txt"),
@@ -439,11 +428,9 @@ def main(report_path: str) -> int:
         for d in raw_deps
         if d["manager"] == "pants" and d.get("skipReason") == "unsupported"
     )
-    # `poetry-locked/pyproject.toml` is not here: the poetry manager keeps that
-    # file outright, so this manager reports no entry for it to skip.
+    # Only the one this manager reports and cannot replace. A source it cannot
+    # maintain at all is not reported, so it has no entry here either.
     expected_unsupported = [
-        ("hashed-unmatched/constraints.txt", "six"),
-        ("locked-odd-name/poetry-project.toml", "sortedcontainers"),
         ("split-specifier/BUILD.pants", "sortedcontainers"),
     ]
     if unsupported != expected_unsupported:
@@ -509,17 +496,11 @@ def main(report_path: str) -> int:
         for entry in package_file_entries
         if entry["manager"] == "pants" and entry.get("cannotUpdate")
     )
-    # Two, and the pair shows why the flag's `locked` half is not redundant.
-    # `poetry-locked/pyproject.toml` sets the flag as well and is absent: it is
-    # a name `poetry` matches, so a secondary reporting a lock file rejects this
-    # manager's entry before the flag is read -- which is why the flag does not
-    # promise visibility. `locked-odd-name/poetry-project.toml` is the same
-    # shape under a name `poetry` does not match, so nothing rejects it and the
-    # flag is what stops the entry claiming the file.
-    expected_flagged = [
-        "hashed-unmatched/constraints.txt",
-        "locked-odd-name/poetry-project.toml",
-    ]
+    # None: `cannotUpdate` belongs to a stacked branch, and on this one a source
+    # this manager cannot maintain is not reported rather than reported and
+    # flagged. Kept as an assertion rather than deleted, so that reviving the
+    # field without reviving the expectations here cannot pass unnoticed.
+    expected_flagged: list[str] = []
     if flagged != expected_flagged:
         failures.append(
             f"entries saying they cannot be updated are {flagged}, expected {expected_flagged}"
