@@ -55,6 +55,9 @@ EXPECTED: list[tuple[str, str, str, str]] = [
     # a Poetry project with a lock file is left to the poetry manager, which can
     # regenerate the lock file
     ("poetry", "poetry-locked/pyproject.toml", "jinja2", "dependencies"),
+    # a requirements file with hashes is left to pip_requirements, which
+    # refreshes them with `hashin`
+    ("pip_requirements", "hashed/hashed-requirements.txt", "six", ""),
 ]
 
 # (manager, packageFile) pairs that must NOT appear.
@@ -65,6 +68,8 @@ FORBIDDEN: list[tuple[str, str]] = [
     ("poetry", "poetry/pyproject.toml"),
     # ...and drops pants for the file whose lock file it cannot regenerate
     ("pants", "poetry-locked/pyproject.toml"),
+    # pants never claims a hashed requirements file
+    ("pants", "hashed/hashed-requirements.txt"),
 ]
 
 
