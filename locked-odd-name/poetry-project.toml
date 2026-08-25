@@ -1,0 +1,6 @@
+[tool.poetry]
+name = "locked-odd-name"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+sortedcontainers = "^2.4.0"

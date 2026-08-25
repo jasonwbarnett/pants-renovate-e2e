@@ -121,19 +121,40 @@ if (
 // auto-replace confirmation, and it is the only place a difference between the
 // two shows up: a file the walk skips and this one reads is a file Renovate
 // would offer to edit and then fail on.
-const proseFiles = execFileSync(
-  "git",
-  ["ls-files", "*BUILD.md", "*BUILD.rst", "*BUILD.markdown"],
-  { cwd: repoDir, encoding: "utf8" },
-)
-  .split("\n")
-  .filter(Boolean);
+// Read out of the manager rather than listed, so an extension added there is
+// covered here without anyone remembering to. A list of names would prove the
+// check ran while covering a fraction of what it claims -- which it did, three
+// of eight.
+const proseExtensions = [
+  ...readFileSync(
+    resolve(renovateSrc, "lib/modules/manager/pants/extract.ts"),
+    "utf8",
+  )
+    .match(/const proseExtensions = new Set\(\[([^\]]*)\]\)/)[1]
+    .matchAll(/'([^']+)'/g),
+].map((m) => m[1]);
 
-if (!proseFiles.length) {
+if (proseExtensions.length < 3) {
   failures.push(
-    "no prose build file in the repository: this check tests nothing",
+    `read ${proseExtensions.length} prose extensions out of the manager, which cannot be right`,
   );
 }
+
+// Every one of them, as a synthetic file, so coverage does not depend on a
+// fixture existing for each. The tracked fixtures are checked as well, since
+// those are what the walk sees.
+const proseFiles = [
+  ...proseExtensions.flatMap((ext) => [
+    `synthetic/BUILD${ext}`,
+    `synthetic/BUILD${ext.toUpperCase()}`,
+  ]),
+  ...execFileSync("git", ["ls-files", "*BUILD.*"], {
+    cwd: repoDir,
+    encoding: "utf8",
+  })
+    .split("\n")
+    .filter((f) => proseExtensions.includes(f.slice(f.lastIndexOf(".")))),
+];
 
 // A branch config describes its first upgrade, so a branch spanning a build file
 // and a source hands the same `managerData` to both. Each file has to be read
@@ -181,8 +202,19 @@ if (!buildFileDeps || !sourceDeps) {
   }
 }
 
+const proseContent = [
+  "# Adding a dependency",
+  "",
+  "```python",
+  'python_requirement(name="example", requirements=["evil==9.9.9"])',
+  "```",
+  "",
+].join("\n");
+
 for (const proseFile of proseFiles) {
-  const content = readFileSync(resolve(repoDir, proseFile), "utf8");
+  const content = proseFile.startsWith("synthetic/")
+    ? proseContent
+    : readFileSync(resolve(repoDir, proseFile), "utf8");
   const res = await extractPackageFile(content, proseFile, managerConfig);
   if (res !== null) {
     failures.push(

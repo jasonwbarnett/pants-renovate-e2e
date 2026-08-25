@@ -1,0 +1,8 @@
+# A Poetry project with a lock file, under a name `poetry` does not match: its
+# patterns are `pyproject.toml` only, and a `source=` can point anywhere.
+#
+# So no other manager reports this file, nothing is dropped on the lock file, and
+# this manager's entry is the only one. It has to say `cannotUpdate` for its own
+# sake rather than to yield to anybody: the lock file cannot be regenerated here,
+# so every dependency is reported skipped, and the entry claims nothing.
+poetry_requirements(name="poetry", source="poetry-project.toml")
