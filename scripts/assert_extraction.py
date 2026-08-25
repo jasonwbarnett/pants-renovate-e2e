@@ -90,6 +90,14 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
     ),
 ]
 
+# (manager, packageFile, depName) triples that must NOT appear. A name that is
+# only part of an expression is worse than a name that is missing: it produces
+# an edit into code rather than into a requirement.
+FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
+    ("pants", "expression-requirements/BUILD.pants", "flask"),
+    ("pants", "expression-requirements/BUILD.pants", "alembic"),
+]
+
 # (manager, packageFile) pairs that must NOT appear.
 FORBIDDEN: list[tuple[str, str]] = [
     # `supersedesManagers` drops the other manager for a file pants produced
@@ -154,6 +162,15 @@ def main(report_path: str) -> int:
         if any(m == manager and f == package_file for m, f, _, _, _ in found):
             failures.append(f"should have been superseded: ({manager}, {package_file})")
 
+    for manager, package_file, dep_name in FORBIDDEN_DEPS:
+        if any(
+            m == manager and f == package_file and d == dep_name
+            for m, f, d, _, _ in found
+        ):
+            failures.append(
+                f"expression read as a requirement: ({manager}, {package_file}, {dep_name})"
+            )
+
     # A requirement split across adjacent literals has to come back joined,
     # with its version: without the version there is nothing to update.
     joined = [
@@ -178,7 +195,7 @@ def main(report_path: str) -> int:
     for manager, package_file, lock_files in lock_claims:
         failures.append(f"pants claimed lock files it cannot update: {package_file} -> {lock_files}")
 
-    print(f"checked {len(EXPECTED)} expectations against {len(found)} extracted dependencies")
+    print(f"checked {len(EXPECTED) + len(FORBIDDEN) + len(FORBIDDEN_DEPS)} expectations against {len(found)} extracted dependencies")
     if failures:
         print("\nFAILURES:")
         for failure in failures:

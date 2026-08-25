@@ -5,3 +5,18 @@ python_requirement(
     requirements=["decorator==5.1.0" if PY39 else "decorator==5.1.1"],
     resolve="tools",
 )
+
+# A requirement built by a method call is not a requirement on the template the
+# call is made on. Reporting `flask=={}` would put a version into a format
+# string the next time the pin moved.
+python_requirement(
+    name="templated",
+    requirements=["flask=={}".format(FLASK_VERSION)],
+)
+
+# The dangerous shape: the template alone parses as a valid pin, so a manager
+# that stops at "does this look like a requirement" would edit it.
+python_requirement(
+    name="stripped",
+    requirements=["alembic==1.11.0 ".strip()],
+)
