@@ -7,7 +7,9 @@ Every directory here exists to exercise one code path of that manager.
 The [`renovate-e2e`](../../actions/workflows/renovate-e2e.yml) workflow runs Renovate from the pull request branch against this repository on every push, and asserts one expectation per path, so a regression fails a check instead of hiding in a log.
 The same workflow can be dispatched with `open_prs` to run Renovate for real, in which case the pull requests it opens show the edits it makes.
 
-The dependencies here are deliberately out of date and pinned, so that every path produces a pull request whose diff shows the edit being made.
+Roughly half of these paths exist to prove an update lands: their dependencies are deliberately out of date and pinned, so a dispatched run opens a pull request whose diff shows the edit.
+The other half exist to prove nothing is proposed — prose refused, an expression not read, a source whose name cannot be resolved, a lock file left to the manager that owns it.
+Those cannot produce a pull request, and that is what they are for, so the assertions are what check them.
 
 Two runs prove different things:
 
@@ -16,24 +18,41 @@ Two runs prove different things:
 
 ## What each path proves
 
-| Path                                       | Pants target                                | What it covers                                                                    |
-| ------------------------------------------ | ------------------------------------------- | --------------------------------------------------------------------------------- |
-| `inline/BUILD.pants`                       | `python_requirement`                        | Requirements written in the build file, with extras, with no version, and repeated |
-| `inline/BUILD.pants`                       | `python_requirement` twice                  | The same dist pinned once per resolve, which has to update each target separately  |
-| `inline/BUILD.pants`                       | `resolve=parametrize(...)`                  | A requirement that belongs to two resolves at once                                 |
-| `inline/BUILD.pants`                       | `module_mapping`, `overrides`               | Fields that must never be read as requirements                                     |
-| `default-source/`                          | `python_requirements`                       | The default `requirements.txt` source                                              |
-| `named-source/`                            | `python_requirements(source=...)`           | A source named by the target                                                       |
-| `pep621/`                                  | `python_requirements(source=pyproject.toml)` | A PEP 621 source, including a PEP 735 dependency group                             |
-| `poetry/`                                  | `poetry_requirements`                       | A Poetry source, including a Poetry dependency group                               |
-| `no-arguments/`, `no-arguments-poetry/`     | `python_requirements()`, `poetry_requirements()` | A generator target with no arguments at all, the documented form, which relies entirely on the field defaults |
-| `python-forms/`                            | `python_requirement`                        | A requirement written as adjacent string literals, which Python joins, and one written in a tuple |
-| `hashed/`                                  | `python_requirements` over a `--hash=` file  | A requirements file whose hashes must be refreshed when a pin changes, so it is left to `pip_requirements` |
-| `poetry-locked/`                           | `poetry_requirements` plus `poetry.lock`     | A source whose lock file this manager cannot regenerate, so the `poetry` manager keeps it. This one is checked by the assertions rather than by a pull request, because regenerating a Poetry lock file needs Poetry installed |
-| `uv/`                                      | `uv_requirements`                           | `[tool.uv] dev-dependencies`, and the `[project]` dependencies of the same file    |
-| `poetry-prefixed-tool/`                    | `python_requirements(source=pyproject.toml)` | A PEP 621 file carrying `[tool.poetry-dynamic-versioning]`, which is not Poetry     |
-| `custom-build-file-name/pants_targets.py`  | `python_requirement`                        | A build file named by `build_patterns` rather than `BUILD`                         |
-| `vcs/BUILD.pants`                          | `python_requirement`                        | A `git+https` requirement, which keeps its git datasource                          |
+| Path                                      | Pants target                                         | What it covers                                                                                                                                                                                                                 |
+| ----------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `inline/BUILD.pants`                      | `python_requirement`                                 | Requirements written in the build file, with extras, with no version, and repeated                                                                                                                                             |
+| `inline/BUILD.pants`                      | `python_requirement` twice                           | The same dist pinned once per resolve, which has to update each target separately                                                                                                                                              |
+| `inline/BUILD.pants`                      | `resolve=parametrize(...)`                           | A requirement that belongs to two resolves at once                                                                                                                                                                             |
+| `inline/BUILD.pants`                      | `module_mapping`, `overrides`                        | Fields that must never be read as requirements                                                                                                                                                                                 |
+| `default-source/`                         | `python_requirements`                                | The default `requirements.txt` source                                                                                                                                                                                          |
+| `named-source/`                           | `python_requirements(source=...)`                    | A source named by the target                                                                                                                                                                                                   |
+| `pep621/`                                 | `python_requirements(source=pyproject.toml)`         | A PEP 621 source, including a PEP 735 dependency group                                                                                                                                                                         |
+| `poetry/`                                 | `poetry_requirements`                                | A Poetry source, including a Poetry dependency group                                                                                                                                                                           |
+| `no-arguments/`, `no-arguments-poetry/`   | `python_requirements()`, `poetry_requirements()`     | A generator target with no arguments at all, the documented form, which relies entirely on the field defaults                                                                                                                  |
+| `python-forms/`                           | `python_requirement`                                 | A requirement written as adjacent string literals, which Python joins, and one written in a tuple                                                                                                                              |
+| `hashed/`                                 | `python_requirements` over a `--hash=` file          | A requirements file whose hashes must be refreshed when a pin changes, so it is left to `pip_requirements`                                                                                                                     |
+| `poetry-locked/`                          | `poetry_requirements` plus `poetry.lock`             | A source whose lock file this manager cannot regenerate, so the `poetry` manager keeps it. This one is checked by the assertions rather than by a pull request, because regenerating a Poetry lock file needs Poetry installed |
+| `uv/`                                     | `uv_requirements`                                    | `[tool.uv] dev-dependencies`, and the `[project]` dependencies of the same file                                                                                                                                                |
+| `poetry-prefixed-tool/`                   | `python_requirements(source=pyproject.toml)`         | A PEP 621 file carrying `[tool.poetry-dynamic-versioning]`, which is not Poetry                                                                                                                                                |
+| `custom-build-file-name/pants_targets.py` | `python_requirement`                                 | A build file named by `build_patterns` rather than `BUILD`                                                                                                                                                                     |
+| `vcs/BUILD.pants`                         | `python_requirement`                                 | A `git+https` requirement, which keeps its git datasource                                                                                                                                                                      |
+| `bare-build/BUILD`                        | `python_requirement`                                 | `BUILD` with no extension, the first entry in Pants' own default patterns                                                                                                                                                      |
+| `custom-build-ext/app.build.toml`         | `python_requirement`                                 | A build file whose configured name ends in a source format's extension, read correctly because its content decides                                                                                                             |
+| `build-ext-txt/app.build.txt`             | `python_requirement`                                 | The other side of that trade: a build file under an extension only a source carries, which only the recorded reading can route                                                                                                 |
+| `build-prefixed-source/`                  | `python_requirements(source=BUILD_requirements.txt)` | A source whose name starts with `BUILD` but is not a build-file name                                                                                                                                                           |
+| `source-named-build/`                     | `python_requirements(source=BUILD.txt)`              | A target naming a source Pants itself reads as a build file: a contradiction, so the source is refused and the build file keeps its own pins                                                                                   |
+| `pattern-covered-source/`                 | `python_requirements(source=*.build.toml)`           | A source a configured build-file pattern also covers, claimed anyway because the target says what it is                                                                                                                        |
+| `mixed-source/pins.txt`                   | `python_requirements(source=pins.txt)`               | A conventionally named source holding a line that parses as a target, read by its extension rather than its content                                                                                                            |
+| `record-decides/constraints`              | `python_requirements(source=constraints)`            | The same with no extension at all, which nothing but the recorded reading can route — the one file in the derived record-dependent set                                                                                         |
+| `misnamed-toml/`                          | `python_requirements(source=constraints.toml)`       | A pip requirements file under a `.toml` name                                                                                                                                                                                   |
+| `upper-ext-source/`                       | `poetry_requirements(source=pyproject.TOML)`         | An extension differing from the check only in case                                                                                                                                                                             |
+| `docs/`, `prose-source/`                  | prose named like a build file, and named as a source | `BUILD.md`, `BUILD.MD` and `BUILD.adoc`, plus a target naming `notes.md`: prose is refused whatever a pattern says                                                                                                             |
+| `expression-requirements/`                | `python_requirement`                                 | Every way of building or choosing a requirement with an expression — concatenation, interpolation, a subscript, a method call, a conditional, a call argument, and an expression around the whole field                        |
+| `split-specifier/`                        | `python_requirement`                                 | A version specifier split across two literals, which nothing in the file can replace, plus a decoy writing the same range whole                                                                                                |
+| `unresolved-source/`                      | `python_requirements(source=<expression>)`           | A source given as a variable, a pair, a concatenation or an interpolation: none falls back to the default                                                                                                                      |
+| `hashed-unmatched/`                       | `python_requirements(source=constraints.txt)`        | A hashed file under a name `pip_requirements` does not claim by default, reported as skipped — and this repository widens that manager's patterns to cover it, so both report it and it matters which keeps it                 |
+| `locked-odd-name/`                        | `poetry_requirements(source=poetry-project.toml)`    | A locked source under a name `poetry` does not match, so nothing supersedes and the entry has to say it claims nothing                                                                                                         |
+| `poetry-path-override/`                   | `poetry_requirements`                                | `[project]` constraint with a `[tool.poetry]` path override, where the delegate's own skip must not be read as this manager being unable to maintain the file. The counterexample the shared-code change is designed around    |
 
 ## Running it yourself
 
@@ -60,14 +79,14 @@ gh api -X POST repos/jasonwbarnett/pants-renovate-e2e/dispatches \
   -f "client_payload[sha]=$(git rev-parse HEAD)"
 ```
 
-`git rev-parse HEAD` rather than a shortened SHA: the checkout is shallow, and a
-shallow fetch of an abbreviated SHA fails with nothing more useful than `git
-failed with exit code 1`.
+`git rev-parse HEAD` rather than a shortened SHA: the checkout is shallow, so a
+short SHA cannot be fetched. The workflow checks the ref before the checkout and
+says so by name, which it did not do the first two times this caught me.
 
 ## What the last run showed
 
-Every path above produced a pull request, including the two that the review of
-the pull request asked about:
+Every path above that can produce a pull request did, including the two that the
+review of the pull request asked about:
 
 - one dist pinned in two targets, one per resolve, updates **both** targets in a
   single pull request, because `doAutoReplace` walks the later occurrences

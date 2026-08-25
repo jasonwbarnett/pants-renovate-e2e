@@ -133,11 +133,24 @@ let degradedChecked = 0;
 // costs someone an hour; a file the run updates and this script never tests
 // costs a regression.
 //
-// And only this much of the claim surface. `claimed` is what survives
-// supersedes, so a file this manager wrongly claims and another manager takes
-// back is invisible here -- that direction is `assert_extraction.py`'s
-// `FORBIDDEN` list. The two scripts divide the space and neither bounds it
-// alone.
+// And only this much of the claim surface, in two ways worth naming because the
+// next person will rely on exactly as much as this comment says.
+//
+// `claimed` is what survives supersedes, so a file this manager wrongly claims
+// and another manager takes back is invisible here -- that direction is
+// `assert_extraction.py`'s `FORBIDDEN` list. The two scripts divide the space
+// and neither bounds it alone.
+//
+// And this compares path sets, not readings: a file the run read as a source and
+// this script read as a build file would pass. That cannot happen while both
+// sides run the same extraction over the same population, which is why it is a
+// sentence here rather than an assertion.
+//
+// The other side of the comparison cannot be inflated to swallow a claimed file,
+// and that is structural rather than lucky. `getMatchingFiles` runs
+// `getFilteredFileList` first, so `ignorePaths` -- the one option that makes the
+// two populations diverge -- drops a path before any pattern is consulted, and
+// no pattern can put it back.
 const report = JSON.parse(readFileSync(resolve(reportPath), "utf8"));
 const claimed = Object.values(report.repositories ?? {}).flatMap((repo) =>
   (repo.packageFiles?.pants ?? []).map((f) => f.packageFile),
