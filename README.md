@@ -176,3 +176,16 @@ against a dirty test bed: `assert_updates.mjs` restores what it writes in a
 mutated makes the next run measure that instead. That produces findings with no
 defect behind them, which has happened to both of the harnesses used on this
 work.
+
+The sweep also names the test bed's revision, not only the manager's. A result
+here is a statement about a pair of commits, and a clean checkout at the wrong
+one passes any dirty check, so the pair is printed and an expected bed revision
+can be required.
+
+The sixth instance of the same pattern was in the code added to close the fifth.
+The hashed tier pinned a gitignored file's hash at setup and compared it at each
+reset — but a missing file gives an empty hash on both sides, and empty equals
+empty, so a path with no file in the copy passed as reset. The general form is
+worth keeping alongside the first: **a comparison is only a check if both sides
+can be obtained independently. If the same failure produces both, it proves
+nothing.**
