@@ -99,8 +99,10 @@ which is what the earlier name-based check got wrong.
 ## What a green run does not prove
 
 The assertions here are checked by breaking the manager one change at a time and
-requiring that at least one of the two scripts goes red. 47 such changes are
-tested; 46 are caught. The one that is not:
+requiring that at least one of the two scripts goes red. The cases live in
+`mutations.py` (12) and `mutations2.py` (34) in the harness alongside this
+repository, so the count can be checked rather than taken: 46 changes are tested
+and 45 are caught. The one that is not:
 
 - **Widening the default `managerFilePatterns`.** This is not a gap: a wider
   default only hands the manager more files, and a file that is not a build file
