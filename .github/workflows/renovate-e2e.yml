@@ -35,6 +35,10 @@ env:
   # A repository_dispatch carries no commit of its own, so the sender says
   # which one it meant. Without it a dispatch fired for commit A tests
   # whatever HEAD is when the runner starts.
+  #
+  # It has to be a full 40-character SHA. The checkout below is shallow, and a
+  # shallow fetch of an abbreviated SHA fails with nothing but `git failed with
+  # exit code 1`.
   RENOVATE_REF: ${{ inputs.renovate_ref || github.event.client_payload.sha || 'feat/pants-manager' }}
 
 permissions:

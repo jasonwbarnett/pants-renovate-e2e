@@ -51,6 +51,19 @@ python3 scripts/assert_extraction.py report.json
 
 `--platform=local` writes nothing and needs no credentials.
 
+To run the workflow against one specific commit of the manager rather than
+whatever the branch points at:
+
+```bash
+gh api -X POST repos/jasonwbarnett/pants-renovate-e2e/dispatches \
+  -f event_type=manager-changed \
+  -f "client_payload[sha]=$(git rev-parse HEAD)"
+```
+
+`git rev-parse HEAD` rather than a shortened SHA: the checkout is shallow, and a
+shallow fetch of an abbreviated SHA fails with nothing more useful than `git
+failed with exit code 1`.
+
 ## What the last run showed
 
 Every path above produced a pull request, including the two that the review of
