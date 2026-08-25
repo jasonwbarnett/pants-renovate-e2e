@@ -49,5 +49,11 @@
   "separateMinorPatch": true,
   "prHourlyLimit": 0,
   "prConcurrentLimit": 0,
-  "dependencyDashboard": true
+  "dependencyDashboard": true,
+  "pip_requirements": {
+    "managerFilePatterns": [
+      "/(^|/)[\\w-]*requirements([-._]\\w+)?\\.(txt|pip)$/",
+      "/(^|/)constraints\\.txt$/"
+    ]
+  }
 }

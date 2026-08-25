@@ -1,0 +1,11 @@
+# A Poetry project with no lock file, in the documented layout where `[project]`
+# carries the version constraint and `[tool.poetry]` overrides it with a local
+# path for development.
+#
+# Poetry's own extractor marks that dependency `path-dependency` -- "do not
+# update this" -- and this manager inherits that judgement by delegating to it.
+# That is not the same statement as "I cannot update this file", which is why
+# `cannotUpdate` is set explicitly rather than inferred from every dependency
+# being skipped. Inferring it would let `pep621` survive and propose bumping the
+# constraint Poetry deliberately ignores.
+poetry_requirements(name="poetry")

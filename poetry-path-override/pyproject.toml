@@ -1,0 +1,11 @@
+[project]
+name = "path-override"
+version = "0.1.0"
+dependencies = ["mylib>=1.0"]
+
+[tool.poetry]
+name = "path-override"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+mylib = { path = "../mylib" }

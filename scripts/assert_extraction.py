@@ -107,9 +107,24 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
         "python_requirements",
         "==0.2.6",
     ),
-    # a hashed file `pip_requirements` does not claim by name is reported here,
-    # skipped, rather than left to nobody
+    # A hashed file this manager reports as skipped, while the manager that can
+    # refresh the hashes keeps it and stays updatable. This repository widens
+    # `pip_requirements.managerFilePatterns` to cover the name, which is the
+    # configuration that makes `cannotUpdate` load-bearing: without the field
+    # being read, the skipped entry takes the file from the live one.
     ("pants", "hashed-unmatched/constraints.txt", "six", "python_requirements", "==1.16.0"),
+    ("pip_requirements", "hashed-unmatched/constraints.txt", "six", "", "==1.16.0"),
+    # A lock-free Poetry file in the path-override layout. This manager keeps
+    # it, with the delegate's own `path-dependency` skip inherited, and both
+    # `pep621` and `poetry` are superseded -- which is only correct because the
+    # claim is stated rather than inferred from every dependency being skipped.
+    (
+        "pants",
+        "poetry-path-override/pyproject.toml",
+        "mylib",
+        "project.dependencies",
+        ">=1.0",
+    ),
     # a source whose text reads like a build file: only the recorded reading
     # routes it correctly, so this is what makes that record load-bearing
     (
@@ -230,9 +245,10 @@ FORBIDDEN: list[tuple[str, str]] = [
     ("pants", "unresolved-source/first-requirements.txt"),
     ("pants", "unresolved-source/second-requirements.txt"),
     ("pants", "unresolved-source/prefix-.txt"),
-    # a hashed file under a name `pip_requirements` does not claim belongs to
-    # nobody else, so that manager must not report it either
-    ("pip_requirements", "hashed-unmatched/constraints.txt"),
+    # inferring the claim from the dependencies instead of reading it would let
+    # these two survive and propose bumping a constraint Poetry ignores
+    ("pep621", "poetry-path-override/pyproject.toml"),
+    ("poetry", "poetry-path-override/pyproject.toml"),
     # a source Pants itself would read as a build file: a contradiction in the
     # repository, so neither file is claimed
     ("pants", "source-named-build/BUILD.txt"),
@@ -386,23 +402,39 @@ def main(report_path: str) -> int:
             f"expected 2 pytest dependencies in inline/BUILD.pants, found {pytest_pins}"
         )
 
-    # An entry every dependency of which is skipped has to say so, or Renovate
-    # drops the entry of the manager that can maintain the file.
+    # `cannotUpdate` means this manager cannot maintain the file, so every
+    # dependency in such an entry must be skipped.
+    #
+    # The converse does not hold, and `poetry-path-override/pyproject.toml` is
+    # why: a skip inherited from a delegate is the delegate's judgement about a
+    # dependency, not a statement that this manager cannot maintain the file.
+    # Setting the flag there would take the file from the manager that owns its
+    # format, which is the bug this replaced.
     for entry in package_file_entries:
-        if entry["manager"] != "pants":
+        if entry["manager"] != "pants" or not entry.get("cannotUpdate"):
             continue
-        all_skipped = bool(entry.get("deps")) and all(
-            d.get("skipReason") for d in entry["deps"]
+        live = [d for d in entry.get("deps") or [] if not d.get("skipReason")]
+        if live or not entry.get("deps"):
+            failures.append(
+                f"{entry['packageFile']}: says it cannot be updated but reports "
+                f"{len(live)} live dependencies out of {len(entry.get('deps') or [])}"
+            )
+
+    # And the two shapes that do set it are the two that mean it.
+    flagged = sorted(
+        entry["packageFile"]
+        for entry in package_file_entries
+        if entry["manager"] == "pants" and entry.get("cannotUpdate")
+    )
+    # Only the hashed one survives to be seen. `poetry-locked/pyproject.toml`
+    # sets the flag too, but a secondary reporting a lock file rejects this
+    # manager's entry before the flag is consulted, so it is not in the report
+    # at all -- which is why the flag does not promise visibility.
+    expected_flagged = ["hashed-unmatched/constraints.txt"]
+    if flagged != expected_flagged:
+        failures.append(
+            f"entries saying they cannot be updated are {flagged}, expected {expected_flagged}"
         )
-        if all_skipped and not entry.get("cannotUpdate"):
-            failures.append(
-                f"{entry['packageFile']}: every dependency is skipped but the entry "
-                "does not say it cannot be updated"
-            )
-        if entry.get("cannotUpdate") and not all_skipped:
-            failures.append(
-                f"{entry['packageFile']}: says it cannot be updated but reports a live dependency"
-            )
 
     # This manager has no `updateArtifacts`, so it must never claim a lock file.
     for manager, package_file, lock_files in lock_claims:

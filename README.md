@@ -80,14 +80,14 @@ which is what the earlier name-based check got wrong.
 ## What a green run does not prove
 
 The assertions here are checked by breaking the manager one change at a time and
-requiring that at least one of the two scripts goes red. 42 such changes are
-tested; 41 are caught. The one that is not:
+requiring that at least one of the two scripts goes red. 44 such changes are
+tested; 43 are caught. The one that is not:
 
 - **Widening the default `managerFilePatterns`.** This is not a gap: a wider
   default only hands the manager more files, and a file that is not a build file
   parses to no targets and produces nothing. There is no defect to catch.
 
-Three earlier entries have left this list, each because a route was found to the
+Four earlier entries have left this list, each because a route was found to the
 code they broke rather than because the code was removed — the pattern-list
 reading, the build-file-name fallback and the pattern branch of the routing. The
 last of those is gone from the manager entirely: it could not be reached and it
@@ -121,3 +121,20 @@ update here is therefore applied twice, once with that record and once without,
 and both have to land. The exception is listed in `RECORD_DEPENDENT`: one source
 whose text genuinely reads like a build file, which nothing but the record can
 route.
+
+The two mutations that break `supersedes.ts` — ignoring `cannotUpdate`, and
+inferring it from the dependencies the way an earlier version did — are only
+meaningful because this repository configures a real collision.
+`pip_requirements.managerFilePatterns` is widened to cover
+`hashed-unmatched/constraints.txt`, so two managers report that file and it
+matters which one keeps it; and `poetry-path-override/pyproject.toml` is the
+layout where a delegate's own skip must not be read as "this manager cannot
+maintain the file". Without those two, both mutations pass: the assertions would
+prove the field is set and nothing would prove it is read.
+
+Running those mutations at all needed the sweep hardened. Its pristine snapshot
+now comes from `git show` rather than from the working copy, every path any
+mutation can write is listed explicitly rather than covered by directory, and
+each reset is verified with `cmp` before the next case runs. Without all three, a
+mutation to a shared file leaks into the following case and the sweep becomes
+order-dependent — which is worse than wrong, because it looks like a result.
