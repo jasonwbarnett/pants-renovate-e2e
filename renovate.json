@@ -1,14 +1,33 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "enabledManagers": ["pants", "pip_requirements", "pep621", "poetry"],
+  "extends": [
+    "config:recommended"
+  ],
+  "enabledManagers": [
+    "pants",
+    "pip_requirements",
+    "pep621",
+    "poetry"
+  ],
   "pants": {
-    "managerFilePatterns": ["/(^|/)pants_targets\\.py$/"]
+    "managerFilePatterns": [
+      "/(^|/)pants_targets\\.py$/"
+    ]
   },
   "packageRules": [
     {
       "description": "The interpreter constraint is not a third-party dependency",
-      "matchPackageNames": ["python", "containerbase/python-prebuild"],
+      "matchPackageNames": [
+        "python",
+        "containerbase/python-prebuild"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Extraction is what this path tests. An update would run hashin to refresh the hashes, and that tool is not on the runner.",
+      "matchFileNames": [
+        "hashed/**"
+      ],
       "enabled": false
     }
   ],
