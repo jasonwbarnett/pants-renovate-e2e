@@ -66,3 +66,25 @@ python_requirement(
     name="grouped",
     requirements=[("pyarrow==14.0.0")],
 )
+
+# An expression around the whole value rather than inside it. Only one arm is
+# named, so an update would edit an arm that may not be the one in use and leave
+# the live one stale, with nothing in the diff to show it.
+python_requirement(
+    name="selected",
+    requirements=["pendulum==2.1.2"] if PY39 else ["pendulum==3.0.0"],
+)
+
+# `and` is worse: Python yields the other operand, so the requirement read is
+# not in the field under any condition.
+python_requirement(
+    name="conjoined",
+    requirements=["shapely==2.0.0"] and EXTRA_REQUIREMENTS,
+)
+
+# The arithmetic around a list preserves membership, so this one is a real pin
+# and is updated where it is written.
+python_requirement(
+    name="extended",
+    requirements=["croniter==1.4.1"] + EXTRA_REQUIREMENTS,
+)

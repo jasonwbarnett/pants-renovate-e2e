@@ -1,0 +1,4 @@
+# A generator source whose text happens to read like a build file. Nothing about
+# the name says which it is, and the content says the wrong thing, so the only
+# thing that can route it correctly is extraction recording how it read it.
+python_requirements(name="reqs", source="constraints")

@@ -78,28 +78,32 @@ if (!proseFiles.length) {
 // and a source hands the same `managerData` to both. Each file has to be read
 // correctly even when the config it is given is about the other one.
 const buildFileDeps = packageFiles.find((f) =>
-  f.deps.some((d) => d.managerData?.pantsReadAs === 'buildFile'),
+  f.deps.some((d) => d.managerData?.pantsReadAs === "buildFile"),
 );
 const sourceDeps = packageFiles.find((f) =>
-  f.deps.some((d) => d.managerData?.pantsReadAs === 'source'),
+  f.deps.some((d) => d.managerData?.pantsReadAs === "source"),
 );
 
 if (!buildFileDeps || !sourceDeps) {
   failures.push(
-    'no build-file and source pair to cross-check: this check tests nothing',
+    "no build-file and source pair to cross-check: this check tests nothing",
   );
 } else {
   for (const [own, foreign] of [
     [buildFileDeps, sourceDeps],
     [sourceDeps, buildFileDeps],
   ]) {
-    const content = readFileSync(resolve(repoDir, own.packageFile), 'utf8');
+    const content = readFileSync(resolve(repoDir, own.packageFile), "utf8");
     const foreignConfig = {
       ...managerConfig,
       ...foreign.deps[0],
       packageFile: foreign.packageFile,
     };
-    const res = await extractPackageFile(content, own.packageFile, foreignConfig);
+    const res = await extractPackageFile(
+      content,
+      own.packageFile,
+      foreignConfig,
+    );
     const got = (res?.deps ?? []).map((d) => d.depName).sort();
     const want = own.deps.map((d) => d.depName).sort();
     if (JSON.stringify(got) !== JSON.stringify(want)) {
@@ -140,7 +144,12 @@ function bump(currentValue) {
 // Every dependency this repository declares and Renovate can update. A
 // regression that stops extracting some of them would otherwise leave this
 // script testing less and still exiting zero.
-const EXPECTED_UPDATES = 32;
+// Files whose content says the wrong thing about what they are, so the recorded
+// reading is the only thing that routes them. Listed rather than inferred, so
+// that a file joining this list is a deliberate decision.
+const RECORD_DEPENDENT = ["record-decides/constraints"];
+
+const EXPECTED_UPDATES = 34;
 
 for (const packageFile of packageFiles) {
   const original = readFileSync(
@@ -169,6 +178,34 @@ for (const packageFile of packageFiles) {
         newValue,
         depIndex,
       };
+
+      // The same update from a dependency with no recorded reading, which is
+      // the shape a warm extract cache replays: the fingerprint that
+      // invalidates it covers this manager's tests and not its implementation.
+      // Every file has to survive that except the one whose content genuinely
+      // says the wrong thing, which nothing but the record can route.
+      const { managerData: _noRecord, ...withoutRecord } = dep;
+      if (!RECORD_DEPENDENT.includes(packageFile.packageFile)) {
+        try {
+          const degraded = await doAutoReplace(
+            filterConfig(
+              { ...upgrade, ...withoutRecord, managerData: undefined },
+              "branch",
+            ),
+            original,
+            false,
+          );
+          if (degraded === null || degraded === original) {
+            failures.push(
+              `${packageFile.packageFile}: ${dep.depName} does not update without the recorded reading`,
+            );
+          }
+        } catch (err) {
+          failures.push(
+            `${packageFile.packageFile}: ${dep.depName} threw ${err.message} without the recorded reading`,
+          );
+        }
+      }
 
       let updated;
       try {

@@ -73,6 +73,15 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
     # must not be claimed instead (see FORBIDDEN)
     # a pip requirements file under a `.toml` name
     ("pants", "misnamed-toml/constraints.toml", "zipp", "python_requirements", "==3.8.0"),
+    # a list an expression only adds to is a real pin: every literal in it is
+    # in the result, so each is updated where it is written
+    (
+        "pants",
+        "expression-requirements/BUILD.pants",
+        "croniter",
+        "python_requirement",
+        "==1.4.1",
+    ),
     # the neighbour of an abandoned element is still a requirement
     (
         "pants",
@@ -101,6 +110,15 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
     # a hashed file `pip_requirements` does not claim by name is reported here,
     # skipped, rather than left to nobody
     ("pants", "hashed-unmatched/constraints.txt", "six", "python_requirements", "==1.16.0"),
+    # a source whose text reads like a build file: only the recorded reading
+    # routes it correctly, so this is what makes that record load-bearing
+    (
+        "pants",
+        "record-decides/constraints",
+        "tomli",
+        "python_requirements",
+        "==2.0.1",
+    ),
     # a source whose extension differs only in case
     (
         "pants",
@@ -177,6 +195,12 @@ FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
     # neither arm of a conditional: Pants only ever holds one of them
     ("pants", "expression-requirements/BUILD.pants", "decorator"),
     ("pants", "expression-requirements/BUILD.pants", "orjson"),
+    # neither arm of an expression around the whole value, and nothing at all
+    # from an `and`, where Python yields the other operand
+    ("pants", "expression-requirements/BUILD.pants", "pendulum"),
+    ("pants", "expression-requirements/BUILD.pants", "shapely"),
+    # the target-looking line inside a source is not a target
+    ("pants", "record-decides/constraints", "decoy"),
     # a fenced example in a documentation file is not a target, and the file it
     # names is not a source
     ("pants", "docs/BUILD.md", "flask"),

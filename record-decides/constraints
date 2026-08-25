@@ -1,0 +1,3 @@
+# A requirements file, despite the line below it.
+tomli==2.0.1
+python_requirement(name="not-a-target", requirements=["decoy==9.9.9"])

@@ -81,23 +81,17 @@ which is what the earlier name-based check got wrong.
 
 The assertions here are checked by breaking the manager one change at a time and
 requiring that at least one of the two scripts goes red. 42 such changes are
-tested; 39 are caught. The three that are not, and why:
+tested; 41 are caught. The one that is not:
 
-- **Reading the pattern list as a whole instead of one pattern at a time.** Only
-  observable when the list holds a negated pattern, and a negation makes
-  `getMatchingFiles` hand this manager every file that is not excluded, which
-  would make every other expectation here meaningless. Covered by a unit test.
-- **Loosening the build-file-name test where `isBuildFile` falls back to it.**
-  That branch is only reached by a caller that passes no patterns at all, and
-  every route through this repository passes them. Unit tests cover it. The
-  production-reachable use of the same test — refusing a source that Pants
-  itself would read as a build file — is a separate mutation, and it is caught.
-- **Widening the default `managerFilePatterns`.** This one is not a gap: a wider
+- **Widening the default `managerFilePatterns`.** This is not a gap: a wider
   default only hands the manager more files, and a file that is not a build file
   parses to no targets and produces nothing. There is no defect to catch.
 
-Both are stated here rather than left implicit, because the point of this
-repository is that a green run means something specific.
+Three earlier entries have left this list, each because a route was found to the
+code they broke rather than because the code was removed — the pattern-list
+reading, the build-file-name fallback and the pattern branch of the routing. The
+last of those is gone from the manager entirely: it could not be reached and it
+was less correct than the branch after it.
 
 A green run also used to be possible with no run at all: `renovate
 --dry-run=extract` exits 0 when the manager cannot be loaded, and writes no
@@ -106,17 +100,24 @@ had left behind. The workflow now deletes the report before the run and requires
 a non-empty one after it, and `assert_extraction.py` refuses a report that
 describes no dependencies rather than trusting it.
 
-A green run also used to be possible while every file was handed a config about
+A green run used to be possible while every file was handed a config about
 itself. A branch config describes its first upgrade, so a branch spanning a
 build file and a source hands one reading to both, and `assert_updates.mjs` now
 re-extracts each of the pair with the other's config and requires the same
 answer.
 
-And a green run used to be possible against an upgrade Renovate does not build.
+A green run used to be possible against an upgrade Renovate does not build.
 `assert_updates.mjs` assembled the upgrade by hand, including
 `managerFilePatterns` — which Renovate strips before the branch stage, because
-it is a repository-stage option. So a build file under a configured name passed
-here and failed in production on every run. The script now spreads the whole
-dependency the way `flattenUpdates` does and passes the result through
-`filterConfig(upgrade, 'branch')`, so it can only test the upgrade shape that
-actually reaches auto-replace.
+it is a repository-stage option. The script now spreads the whole dependency the
+way `flattenUpdates` does and passes the result through
+`filterConfig(upgrade, 'branch')`.
+
+And a green run used to say nothing about a warm extract cache. The fingerprint
+that invalidates a cached extraction covers a manager's tests, not its
+implementation, so an implementation-only change can pair new code with
+dependencies extracted by the old code — which have no recorded reading. Every
+update here is therefore applied twice, once with that record and once without,
+and both have to land. The exception is listed in `RECORD_DEPENDENT`: one source
+whose text genuinely reads like a build file, which nothing but the record can
+route.
