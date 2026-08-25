@@ -60,25 +60,33 @@ const EXPECTED_RECORD_DEPENDENT = [
   "record-decides/constraints",
 ];
 
-const EXPECTED_UPDATES = 36;
+const EXPECTED_UPDATES = 37;
 
-// One fewer: the single record-dependent file's dependency cannot be updated
-// without the record, by construction.
-const EXPECTED_DEGRADED_UPDATES = 34;
+// One per record-dependent file fewer, by construction: those cannot be updated
+// without the record. Derived rather than restated, so the two numbers cannot
+// drift apart the way they already did once.
+const EXPECTED_DEGRADED_UPDATES =
+  EXPECTED_UPDATES - EXPECTED_RECORD_DEPENDENT.length;
 
-const buildFiles = execFileSync(
-  "git",
-  [
-    "ls-files",
-    "*BUILD.pants",
-    "*pants_targets.py",
-    "*.build.toml",
-    "*.build.txt",
-  ],
-  { cwd: repoDir, encoding: "utf8" },
-)
-  .split("\n")
-  .filter(Boolean);
+// The files Renovate would hand this manager, asked of Renovate's own matcher
+// over the config this script already builds. A glob list here can miss a name
+// the patterns cover -- and did, twice: `*.build.txt`, and then a bare `BUILD`,
+// which is the first entry in Pants' own default patterns. Everything below is
+// downstream of this, so a missed file is invisible to the record-dependent
+// derivation, both floors and the double-apply, and the derivation then returns
+// the expected answer for the wrong population.
+const { getMatchingFiles } = await import(
+  `${renovateSrc}/lib/workers/repository/extract/file-match.ts`
+);
+const buildFiles = getMatchingFiles(
+  { ...managerConfig, manager: "pants", includePaths: [], ignorePaths: [] },
+  execFileSync("git", ["ls-files"], { cwd: repoDir, encoding: "utf8" })
+    .split("\n")
+    .filter(Boolean),
+);
+if (!buildFiles.length) {
+  throw new Error("no build files matched: this script would test nothing");
+}
 
 const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
 

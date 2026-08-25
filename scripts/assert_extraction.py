@@ -171,6 +171,8 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
         "python_requirement",
         "==0.9.0",
     ),
+    # `BUILD` with no extension, the first entry in Pants' own default patterns
+    ("pants", "bare-build/BUILD", "wcwidth", "python_requirement", "==0.2.13"),
     # a build file whose name looks like a requirements file
     ("pants", "custom-build-ext/app.build.toml", "rich", "python_requirement", "==13.4.0"),
     # ...and a source whose name a configured pattern also covers, which is
