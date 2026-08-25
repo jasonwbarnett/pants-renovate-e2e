@@ -109,7 +109,10 @@ jobs:
       # applies one to every dependency through the same code path Renovate
       # uses when it writes a branch.
       - name: Assert every dependency can be updated in place
-        run: node scripts/assert_updates.mjs .renovate-src
+        # The report goes in as well: it is what that script compares its own
+        # view of the repository against, rather than rebuilding the config
+        # resolution that produced it.
+        run: node scripts/assert_updates.mjs .renovate-src report.json
 
       - name: Upload the extraction report
         if: always()

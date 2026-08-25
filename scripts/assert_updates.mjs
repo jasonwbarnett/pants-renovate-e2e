@@ -2,14 +2,25 @@
 // same code path Renovate uses to write a branch, and checks that the right
 // text moved. Extraction alone would not catch an update that silently fails.
 //
-// Usage: node scripts/assert_updates.mjs <path-to-renovate-checkout>
+// Usage: node scripts/assert_updates.mjs <path-to-renovate-checkout> <report.json>
+//
+// The report is the one the extraction step writes, and it is required: it is
+// what this script compares its own population against, rather than rebuilding
+// the config resolution that produced it.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const renovateSrc = resolve(process.argv[2] ?? ".renovate-src");
+const reportPath = process.argv[3];
 const repoDir = process.cwd();
+
+if (!reportPath) {
+  throw new Error(
+    "usage: assert_updates.mjs <path-to-renovate-checkout> <report.json>",
+  );
+}
 
 const { GlobalConfig } = await import(`${renovateSrc}/lib/config/global.ts`);
 const { extractAllPackageFiles, extractPackageFile } = await import(
@@ -78,12 +89,13 @@ const EXPECTED_DEGRADED_UPDATES =
 const { getMatchingFiles } = await import(
   `${renovateSrc}/lib/workers/repository/extract/file-match.ts`
 );
-// `includePaths` and `ignorePaths` from the same place Renovate takes them, not
-// hardcoded: `ignorePaths` defaults to `**/node_modules/**` and
-// `**/bower_components/**`, so passing `[]` made this population wider than the
-// run's. That direction is safe -- a false red rather than a false green -- but
-// it costs the property this derivation exists for, that the two populations are
-// provably the same one.
+// The path options come from the repository config where it sets them and from
+// Renovate's own defaults where it does not, which is the order Renovate
+// resolves them in. This is still a reconstruction, though, so it is not what
+// the correctness of the population rests on -- the comparison against the
+// run's report below is. Two earlier versions of this block diverged from the
+// run: hardcoding `[]` made it wider (a false red), and overriding the
+// repository's value with the option default made it narrower (a false green).
 const { getOptions } = await import(
   `${renovateSrc}/lib/config/options/index.ts`
 );
@@ -92,10 +104,10 @@ const optionDefault = (name) =>
 
 const buildFiles = getMatchingFiles(
   {
-    ...managerConfig,
-    manager: "pants",
     includePaths: optionDefault("includePaths"),
     ignorePaths: optionDefault("ignorePaths"),
+    ...managerConfig,
+    manager: "pants",
   },
   execFileSync("git", ["ls-files"], { cwd: repoDir, encoding: "utf8" })
     .split("\n")
@@ -110,6 +122,35 @@ const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
 const failures = [];
 let checked = 0;
 let degradedChecked = 0;
+
+// Every file the real run claimed has to be one this script knows about, either
+// as a build file its population matched or as a generator source discovered
+// from one. Compared against the run's own report rather than recomputed, so no
+// config option, preset, or future change to how Renovate resolves them can
+// take a file out of this script's view without failing here.
+//
+// Only this direction is asserted. A file this script tests and the run ignores
+// costs someone an hour; a file the run updates and this script never tests
+// costs a regression.
+const report = JSON.parse(readFileSync(resolve(reportPath), "utf8"));
+const claimed = Object.values(report.repositories ?? {}).flatMap((repo) =>
+  (repo.packageFiles?.pants ?? []).map((f) => f.packageFile),
+);
+if (!claimed.length) {
+  failures.push(
+    `the report at ${reportPath} lists no pants package files, so this comparison tests nothing`,
+  );
+}
+const known = new Set([
+  ...buildFiles,
+  ...packageFiles.map((f) => f.packageFile),
+]);
+const unseen = claimed.filter((f) => !known.has(f));
+if (unseen.length) {
+  failures.push(
+    `the run claimed files this script never saw: ${JSON.stringify(unseen)}`,
+  );
+}
 
 // A file is record-dependent when reading it without the record disagrees with
 // how extraction read it. Computed rather than declared: the condition is
