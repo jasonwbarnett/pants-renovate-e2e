@@ -80,8 +80,8 @@ which is what the earlier name-based check got wrong.
 ## What a green run does not prove
 
 The assertions here are checked by breaking the manager one change at a time and
-requiring that at least one of the two scripts goes red. 46 such changes are
-tested; 45 are caught. The one that is not:
+requiring that at least one of the two scripts goes red. 47 such changes are
+tested; 46 are caught. The one that is not:
 
 - **Widening the default `managerFilePatterns`.** This is not a gap: a wider
   default only hands the manager more files, and a file that is not a build file
