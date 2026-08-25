@@ -151,6 +151,16 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
         "dependencies",
         "^2.1.0",
     ),
+    # A build file whose configured name carries a source-only extension, which
+    # is the other direction of the same trade: read correctly here, and only
+    # from the recorded reading, so it joins the derived record-dependent set.
+    (
+        "pants",
+        "build-ext-txt/app.build.txt",
+        "typing-inspect",
+        "python_requirement",
+        "==0.9.0",
+    ),
     # a build file whose name looks like a requirements file
     ("pants", "custom-build-ext/app.build.toml", "rich", "python_requirement", "==13.4.0"),
     # ...and a source whose name a configured pattern also covers, which is

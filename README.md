@@ -122,8 +122,12 @@ and both have to land. The set of files that cannot survive it is
 **derived and asserted** rather than listed: a file is record-dependent when
 reading it without the record disagrees with how extraction read it, which is a
 computation, and a hand-written list can only be wrong in the direction that
-hides a gap. Today that set has one member — a source with no extension at all
-whose text reads like a build file, which no rule about names can classify.
+hides a gap. Today that set has two members, one from each direction of
+the same trade: a source whose name the extension allowlist does not cover and
+whose text reads like a build file, and a build file whose configured name
+carries an extension the allowlist does. Both need a name nobody writes by
+accident, and the derivation reports the membership so nobody has to remember
+it.
 
 The degraded runs have a floor of their own, for the same reason the recorded
 ones do: without it, widening that set to everything would leave this script
@@ -162,3 +166,13 @@ an explicit revision, a dirty tree refuses to run, each reset is compared agains
 and must come back green. That last one is what found the first fault after the
 rebuild — a set of generated files `git archive` does not carry — within a minute
 of being added.
+
+Two more preconditions the sweep states rather than assumes. The set of files it
+restores between cases is asked of the mutation script rather than declared, so a
+new mutation target cannot be left unrestored — the same argument as for the
+record-dependent set, and the same direction of failure. And it refuses to run
+against a dirty test bed: `assert_updates.mjs` restores what it writes in a
+`finally`, which covers a throw but not a kill or a timeout, and a bed left
+mutated makes the next run measure that instead. That produces findings with no
+defect behind them, which has happened to both of the harnesses used on this
+work.

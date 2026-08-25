@@ -1,0 +1,12 @@
+# A build file whose configured name carries a source-only extension. This is
+# the other side of the trade `*.build.toml` sits on: `.txt` is asked before the
+# content, because a `.txt` source needs no configuration at all while a `.txt`
+# build file needs a custom `build_patterns`, so favouring the source is the
+# right default.
+#
+# The cost is that this file can only be routed from the recorded reading, which
+# is why it is in the derived record-dependent set rather than in a comment.
+python_requirement(
+    name="typing-inspect",
+    requirements=["typing-inspect==0.9.0"],
+)

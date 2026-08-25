@@ -45,15 +45,76 @@ const managerConfig = {
   ],
 };
 
+// Every dependency this repository declares and Renovate can update. A
+// regression that stops extracting some of them would otherwise leave this
+// script testing less and still exiting zero.
+// Files the recorded reading is the only thing that can route: their name says
+// nothing (no extension at all) and their content says the wrong thing. Asserted
+// rather than used as a skip list, so a file joining the set fails here instead
+// of quietly losing its degraded coverage.
+// Two, one from each direction of the source-extension trade: a source whose
+// name the allowlist does not cover and whose text reads like a build file, and
+// a build file whose configured name carries an extension the allowlist does.
+const EXPECTED_RECORD_DEPENDENT = [
+  "build-ext-txt/app.build.txt",
+  "record-decides/constraints",
+];
+
+const EXPECTED_UPDATES = 36;
+
+// One fewer: the single record-dependent file's dependency cannot be updated
+// without the record, by construction.
+const EXPECTED_DEGRADED_UPDATES = 34;
+
 const buildFiles = execFileSync(
   "git",
-  ["ls-files", "*BUILD.pants", "*pants_targets.py", "*.build.toml"],
+  [
+    "ls-files",
+    "*BUILD.pants",
+    "*pants_targets.py",
+    "*.build.toml",
+    "*.build.txt",
+  ],
   { cwd: repoDir, encoding: "utf8" },
 )
   .split("\n")
   .filter(Boolean);
 
 const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
+
+const failures = [];
+let checked = 0;
+let degradedChecked = 0;
+
+// A file is record-dependent when reading it without the record disagrees with
+// how extraction read it. Computed rather than declared: the condition is
+// mechanical, and a list can only be wrong in the direction that hides a gap.
+const recordDependent = [];
+for (const pf of packageFiles) {
+  const content = readFileSync(resolve(repoDir, pf.packageFile), "utf8");
+  const degraded = await extractPackageFile(content, pf.packageFile, {
+    ...managerConfig,
+    packageFile: pf.packageFile,
+  });
+  // Name and version, not name alone: a source holding a target line that pins
+  // the same package at another version reads as the same set of names, and the
+  // difference only shows up in what would be written.
+  const recorded = pf.deps.map((d) => `${d.depName}@${d.currentValue}`).sort();
+  const guessed = (degraded?.deps ?? [])
+    .map((d) => `${d.depName}@${d.currentValue}`)
+    .sort();
+  if (JSON.stringify(recorded) !== JSON.stringify(guessed)) {
+    recordDependent.push(pf.packageFile);
+  }
+}
+if (
+  JSON.stringify(recordDependent.sort()) !==
+  JSON.stringify(EXPECTED_RECORD_DEPENDENT)
+) {
+  failures.push(
+    `record-dependent files are ${JSON.stringify(recordDependent)}, expected ${JSON.stringify(EXPECTED_RECORD_DEPENDENT)}`,
+  );
+}
 
 // Prose that the patterns match has to be refused by the single-file entry
 // point as well, not only skipped by the walk. That entry point is the
@@ -77,10 +138,16 @@ if (!proseFiles.length) {
 // A branch config describes its first upgrade, so a branch spanning a build file
 // and a source hands the same `managerData` to both. Each file has to be read
 // correctly even when the config it is given is about the other one.
-const buildFileDeps = packageFiles.find((f) =>
+// Excluding the record-dependent files: handing one of those a foreign config
+// makes it fall back, and the fallback is wrong for them by construction, so
+// including one would measure that rather than whether the stamp is scoped.
+const crossCheckable = packageFiles.filter(
+  (f) => !recordDependent.includes(f.packageFile),
+);
+const buildFileDeps = crossCheckable.find((f) =>
   f.deps.some((d) => d.managerData?.pantsReadAs === "buildFile"),
 );
-const sourceDeps = packageFiles.find((f) =>
+const sourceDeps = crossCheckable.find((f) =>
   f.deps.some((d) => d.managerData?.pantsReadAs === "source"),
 );
 
@@ -124,10 +191,6 @@ for (const proseFile of proseFiles) {
   }
 }
 
-const failures = [];
-let checked = 0;
-let degradedChecked = 0;
-
 /** A new value of the same shape, so the range stays valid. */
 function bump(currentValue) {
   if (/^==/.test(currentValue)) {
@@ -140,46 +203,6 @@ function bump(currentValue) {
     return currentValue.replace(/[\d.]+/, "99.9.9");
   }
   return currentValue.replace(/[\d.]+$/, "99.9.9");
-}
-
-// Every dependency this repository declares and Renovate can update. A
-// regression that stops extracting some of them would otherwise leave this
-// script testing less and still exiting zero.
-// Files the recorded reading is the only thing that can route: their name says
-// nothing (no extension at all) and their content says the wrong thing. Asserted
-// rather than used as a skip list, so a file joining the set fails here instead
-// of quietly losing its degraded coverage.
-const EXPECTED_RECORD_DEPENDENT = ["record-decides/constraints"];
-
-const EXPECTED_UPDATES = 35;
-
-// One fewer: the single record-dependent file's dependency cannot be updated
-// without the record, by construction.
-const EXPECTED_DEGRADED_UPDATES = 34;
-
-// A file is record-dependent when reading it without the record disagrees with
-// how extraction read it. Computed rather than declared: the condition is
-// mechanical, and a list can only be wrong in the direction that hides a gap.
-const recordDependent = [];
-for (const pf of packageFiles) {
-  const content = readFileSync(resolve(repoDir, pf.packageFile), "utf8");
-  const degraded = await extractPackageFile(content, pf.packageFile, {
-    ...managerConfig,
-    packageFile: pf.packageFile,
-  });
-  const recorded = pf.deps.map((d) => d.depName).sort();
-  const guessed = (degraded?.deps ?? []).map((d) => d.depName).sort();
-  if (JSON.stringify(recorded) !== JSON.stringify(guessed)) {
-    recordDependent.push(pf.packageFile);
-  }
-}
-if (
-  JSON.stringify(recordDependent.sort()) !==
-  JSON.stringify(EXPECTED_RECORD_DEPENDENT)
-) {
-  failures.push(
-    `record-dependent files are ${JSON.stringify(recordDependent)}, expected ${JSON.stringify(EXPECTED_RECORD_DEPENDENT)}`,
-  );
 }
 
 for (const packageFile of packageFiles) {

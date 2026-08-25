@@ -12,7 +12,8 @@
   "pants": {
     "managerFilePatterns": [
       "/(^|/)pants_targets\\.py$/",
-      "/(^|/)[^/]+\\.build\\.toml$/"
+      "/(^|/)[^/]+\\.build\\.toml$/",
+      "/(^|/)[^/]+\\.build\\.txt$/"
     ]
   },
   "packageRules": [
