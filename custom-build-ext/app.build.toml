@@ -1,0 +1,6 @@
+# Pants takes its build file names from `build_patterns`, and nothing stops a
+# repository from using an extension that also belongs to a source format.
+python_requirement(
+    name="rich",
+    requirements=["rich==13.4.0"],
+)

@@ -20,3 +20,22 @@ python_requirement(
     name="stripped",
     requirements=["alembic==1.11.0 ".strip()],
 )
+
+# Concatenation. The pin is `foo==1.0rc1`, so neither part is a requirement.
+python_requirement(
+    name="concatenated",
+    requirements=["foo==1.0" + "rc1"],
+)
+
+# An interpolated literal. It takes part in the value wherever it sits, so the
+# literals around it are not the pin, and they do not join across it either.
+python_requirement(
+    name="interpolated",
+    requirements=["httpx==1.0" f"-{BUILD_SUFFIX}"],
+)
+
+# A subscript takes part of the literal, so the literal is not the value.
+python_requirement(
+    name="subscripted",
+    requirements=["starlette==1.0.0"[0:14]],
+)

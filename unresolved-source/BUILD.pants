@@ -4,3 +4,12 @@
 SRC = "actual-requirements.txt"
 
 python_requirements(name="reqs", source=SRC)
+
+# A parenthesised pair is not a path written in parts.
+python_requirements(name="pair", source=("first-requirements.txt", "second-requirements.txt"))
+
+# A literal an operator continues names no file on its own.
+python_requirements(name="built", source="prefix-" + SUFFIX)
+
+# Nor does one an interpolation continues.
+python_requirements(name="interpolated", source="prefix-" f"{SUFFIX}.txt")

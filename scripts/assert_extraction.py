@@ -88,7 +88,56 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
         "python_requirement",
         "==5.1.1",
     ),
+    # a specifier split across two literals: reported, but not updatable
+    (
+        "pants",
+        "split-specifier/BUILD.pants",
+        "sortedcontainers",
+        "python_requirement",
+        ">=1.0,<2.0",
+    ),
+    ("pants", "split-specifier/BUILD.pants", "cachetools", "python_requirement", ">=1.0,<2.0"),
+    # a source whose name starts with BUILD is still a source
+    (
+        "pants",
+        "build-prefixed-source/BUILD_requirements.txt",
+        "wcwidth",
+        "python_requirements",
+        "==0.2.6",
+    ),
+    # a hashed file `pip_requirements` does not claim by name is reported here,
+    # skipped, rather than left to nobody
+    ("pants", "hashed-unmatched/constraints.txt", "six", "python_requirements", "==1.16.0"),
+    # a build file whose name looks like a requirements file
+    ("pants", "custom-build-ext/app.build.toml", "rich", "python_requirement", "==13.4.0"),
 ]
+
+# (packageFile, depName) -> fields that are load-bearing for that fixture,
+# checked where they say something rather than on every row.
+DEP_FIELDS: dict[tuple[str, str], dict[str, object]] = {
+    # a VCS requirement resolves against git tags, under its URL
+    ("vcs/BUILD.pants", "black"): {
+        "datasource": "git-tags",
+        "packageName": "https://github.com/psf/black",
+    },
+    # an ordinary requirement resolves on PyPI, under the name as written
+    ("inline/BUILD.pants", "types-protobuf"): {
+        "datasource": "pypi",
+        "packageName": "types-protobuf",
+    },
+    # a hashed file this manager cannot rewrite is reported, and skipped
+    ("hashed-unmatched/constraints.txt", "six"): {"skipReason": "unsupported"},
+    # a split specifier has no text to anchor a replacement on
+    ("split-specifier/BUILD.pants", "sortedcontainers"): {
+        "skipReason": "unsupported",
+        "replaceString": None,
+    },
+    # the target that writes the same range whole is updatable
+    ("split-specifier/BUILD.pants", "cachetools"): {
+        "skipReason": None,
+        "replaceString": "cachetools>=1.0,<2.0",
+    },
+}
 
 # (manager, packageFile, depName) triples that must NOT appear. A name that is
 # only part of an expression is worse than a name that is missing: it produces
@@ -96,6 +145,9 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
 FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
     ("pants", "expression-requirements/BUILD.pants", "flask"),
     ("pants", "expression-requirements/BUILD.pants", "alembic"),
+    ("pants", "expression-requirements/BUILD.pants", "foo"),
+    ("pants", "expression-requirements/BUILD.pants", "httpx"),
+    ("pants", "expression-requirements/BUILD.pants", "starlette"),
 ]
 
 # (manager, packageFile) pairs that must NOT appear.
@@ -111,6 +163,16 @@ FORBIDDEN: list[tuple[str, str]] = [
     # a target whose source is not a literal must not fall back to the default
     ("pants", "unresolved-source/requirements.txt"),
     ("pants", "unresolved-source/actual-requirements.txt"),
+    # ...whichever way the expression is written
+    ("pants", "unresolved-source/first-requirements.txt"),
+    ("pants", "unresolved-source/second-requirements.txt"),
+    ("pants", "unresolved-source/prefix-.txt"),
+    # a hashed file under a name `pip_requirements` does not claim belongs to
+    # nobody else, so that manager must not report it either
+    ("pip_requirements", "hashed-unmatched/constraints.txt"),
+    # a source under a name the configured patterns call a build file: claiming
+    # it would fail every update to it, so it is refused with a warning
+    ("pants", "refused-source/constraints.build.toml"),
 ]
 
 
@@ -121,12 +183,14 @@ def main(report_path: str) -> int:
     found: set[tuple[str, str, str, str]] = set()
     raw_deps: list[dict] = []
     lock_claims: list[tuple[str, str, list[str]]] = []
+    package_file_entries: list[dict] = []
     pytest_pins = 0
 
     for repo in repositories.values():
         for manager, package_files in (repo.get("packageFiles") or {}).items():
             for package_file in package_files:
                 name = package_file["packageFile"]
+                package_file_entries.append({**package_file, "manager": manager})
                 if manager == "pants" and "lockFiles" in package_file:
                     # Even an empty list is a claim this manager cannot honour,
                     # and it is what a regression would leave behind.
@@ -171,6 +235,56 @@ def main(report_path: str) -> int:
                 f"expression read as a requirement: ({manager}, {package_file}, {dep_name})"
             )
 
+    for (package_file, dep_name), fields in DEP_FIELDS.items():
+        matching = [
+            d
+            for d in raw_deps
+            if d["manager"] == "pants"
+            and d["packageFile"] == package_file
+            and d.get("depName") == dep_name
+        ]
+        if not matching:
+            failures.append(f"missing dependency for field check: {package_file} {dep_name}")
+            continue
+        for field, expected in fields.items():
+            actual = matching[0].get(field)
+            if actual != expected:
+                failures.append(
+                    f"{package_file} {dep_name}: {field} is {actual!r}, expected {expected!r}"
+                )
+
+    # Exactly the dependencies this repository declares to be unreplaceable, and
+    # no others. `assert_updates.mjs` skips these, so its floor cannot see them.
+    unsupported = sorted(
+        (d["packageFile"], d.get("depName"))
+        for d in raw_deps
+        if d["manager"] == "pants" and d.get("skipReason") == "unsupported"
+    )
+    # `poetry-locked/pyproject.toml` is not here: the poetry manager keeps that
+    # file outright, so this manager reports no entry for it to skip.
+    expected_unsupported = [
+        ("hashed-unmatched/constraints.txt", "six"),
+        ("split-specifier/BUILD.pants", "sortedcontainers"),
+    ]
+    if unsupported != expected_unsupported:
+        failures.append(
+            f"unreplaceable dependencies are {unsupported}, expected {expected_unsupported}"
+        )
+
+    # An index a source names is metadata Renovate needs to resolve the
+    # requirements in it, and it has to survive the rebuild that drops the lock
+    # files.
+    indexed = [
+        f
+        for f in package_file_entries
+        if f["manager"] == "pants"
+        and f["packageFile"] == "default-source/requirements.txt"
+    ]
+    if not indexed or indexed[0].get("registryUrls") != ["https://pypi.org/simple"]:
+        failures.append(
+            f"default-source/requirements.txt should keep its index, got {indexed}"
+        )
+
     # A requirement split across adjacent literals has to come back joined,
     # with its version: without the version there is nothing to update.
     joined = [
@@ -195,7 +309,7 @@ def main(report_path: str) -> int:
     for manager, package_file, lock_files in lock_claims:
         failures.append(f"pants claimed lock files it cannot update: {package_file} -> {lock_files}")
 
-    print(f"checked {len(EXPECTED) + len(FORBIDDEN) + len(FORBIDDEN_DEPS)} expectations against {len(found)} extracted dependencies")
+    print(f"checked {len(EXPECTED) + len(FORBIDDEN) + len(FORBIDDEN_DEPS) + len(DEP_FIELDS)} expectations against {len(found)} extracted dependencies")
     if failures:
         print("\nFAILURES:")
         for failure in failures:

@@ -23,15 +23,32 @@ const { doAutoReplace } = await import(
 
 GlobalConfig.set({ localDir: repoDir });
 
+// The manager config this repository sets, merged with the manager's own
+// default the way Renovate merges it, and passed to both entry points. Without
+// the repository's half, the routing cannot know that a build file named
+// `app.build.toml` is one; without the default half, it cannot know that
+// `BUILD.pants` is.
+const { defaultConfig } = await import(`${renovateSrc}/lib/modules/manager/pants/index.ts`);
+const repoConfig = JSON.parse(
+  readFileSync(resolve(repoDir, 'renovate.json'), 'utf8'),
+).pants;
+const managerConfig = {
+  ...repoConfig,
+  managerFilePatterns: [
+    ...defaultConfig.managerFilePatterns,
+    ...repoConfig.managerFilePatterns,
+  ],
+};
+
 const buildFiles = execFileSync(
   'git',
-  ['ls-files', '*BUILD.pants', '*pants_targets.py'],
+  ['ls-files', '*BUILD.pants', '*pants_targets.py', '*.build.toml'],
   { cwd: repoDir, encoding: 'utf8' },
 )
   .split('\n')
   .filter(Boolean);
 
-const packageFiles = await extractAllPackageFiles({}, buildFiles);
+const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
 
 /** A new value of the same shape, so the range stays valid. */
 function bump(currentValue) {
@@ -50,7 +67,7 @@ function bump(currentValue) {
 // Every dependency this repository declares and Renovate can update. A
 // regression that stops extracting some of them would otherwise leave this
 // script testing less and still exiting zero.
-const EXPECTED_UPDATES = 28;
+const EXPECTED_UPDATES = 31;
 
 const failures = [];
 let checked = 0;
@@ -65,6 +82,7 @@ for (const packageFile of packageFiles) {
 
     const newValue = bump(dep.currentValue);
     const upgrade = {
+      ...managerConfig,
       manager: 'pants',
       packageFile: packageFile.packageFile,
       depName: dep.depName,

@@ -11,7 +11,8 @@
   ],
   "pants": {
     "managerFilePatterns": [
-      "/(^|/)pants_targets\\.py$/"
+      "/(^|/)pants_targets\\.py$/",
+      "/(^|/)[^/]+\\.build\\.toml$/"
     ]
   },
   "packageRules": [
@@ -27,6 +28,13 @@
       "description": "Extraction is what this path tests. An update would run hashin to refresh the hashes, and that tool is not on the runner.",
       "matchFileNames": [
         "hashed/**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "The same reason as `hashed/**`: extraction is what this path tests, and refreshing hashes needs a tool that is not on the runner.",
+      "matchFileNames": [
+        "hashed-unmatched/**"
       ],
       "enabled": false
     }

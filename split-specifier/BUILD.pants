@@ -1,0 +1,13 @@
+# The specifier is split across two literals, so the joined text `>=1.0,<2.0`
+# is nowhere in the file and nothing can anchor a replacement on it.
+python_requirement(
+    name="split",
+    requirements=["sortedcontainers>=1.0," "<2.0"],
+)
+
+# The same range written whole, in another target. It must not become the
+# anchor for the target above.
+python_requirement(
+    name="decoy",
+    requirements=["cachetools>=1.0,<2.0"],
+)

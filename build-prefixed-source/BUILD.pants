@@ -1,0 +1,3 @@
+# `BUILD_requirements.txt` is not a name Pants' `build_patterns` cover, so it
+# is an ordinary source. Reading it as a build file would lose everything in it.
+python_requirements(name="reqs", source="BUILD_requirements.txt")

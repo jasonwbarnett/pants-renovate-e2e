@@ -1,0 +1,6 @@
+# This repository tells Renovate that `*.build.toml` names a build file, and a
+# pattern cannot be narrowed once it is set. A generator source under a name
+# the patterns cover is therefore refused rather than claimed: claiming it
+# would have Renovate read the same file as a build file when it came to write
+# the update, and fail every update to it.
+python_requirements(name="reqs", source="constraints.build.toml")

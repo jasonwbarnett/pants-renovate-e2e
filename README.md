@@ -63,3 +63,21 @@ the pull request asked about:
 
 A build file named by `build_patterns` rather than `BUILD` is updated as well,
 which is what the earlier name-based check got wrong.
+
+## What a green run does not prove
+
+The assertions here are checked by breaking the manager one change at a time and
+requiring that at least one of the two scripts goes red. 29 such changes are
+tested; 27 are caught. The two that are not:
+
+- **Reading the pattern list as a whole instead of one pattern at a time.**
+  This only shows up when the list holds a negated pattern, and a negated
+  pattern makes `getMatchingFiles` hand this manager every file that is not
+  excluded, which would make every other expectation here meaningless. Covered
+  by a unit test instead.
+- **Loosening the build file name check that applies when no config is passed.**
+  Every path Renovate itself takes passes a config, so this fallback cannot be
+  reached from a run. Covered by unit tests instead.
+
+Both are stated here rather than left implicit, because the point of this
+repository is that a green run means something specific.

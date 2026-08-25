@@ -1,0 +1,4 @@
+# `pip-compile --generate-hashes -o constraints.txt` writes hashes under a name
+# the `pip_requirements` patterns do not match. Dropping this file would leave
+# nobody reporting it at all.
+python_requirements(name="reqs", source="constraints.txt")
