@@ -145,3 +145,20 @@ mutation can write is listed explicitly rather than covered by directory, and
 each reset is verified with `cmp` before the next case runs. Without all three, a
 mutation to a shared file leaks into the following case and the sweep becomes
 order-dependent — which is worse than wrong, because it looks like a result.
+
+The sweep that produces those numbers had three ways left to report success it
+had not earned, all of them in the checking rather than the mutating — which is
+the harder half, because a check that cannot fail looks exactly like a check
+that passes. Its reset compared the copy against the snapshot it had just been
+made from, so it verified that `cp` ran and nothing more. Its copy was built from
+the working tree and then had six files overwritten from git, so a result was
+about a mixture of two revisions. And a mutation that produced unparseable code
+made the assertions die on a missing report, which exits nonzero — and nonzero is
+the definition of CAUGHT, so total breakage read as total success.
+
+All three are closed the same way: the copy comes entirely from `git archive` at
+an explicit revision, a dirty tree refuses to run, each reset is compared against
+`git show`, the report must exist after every run, and case zero mutates nothing
+and must come back green. That last one is what found the first fault after the
+rebuild — a set of generated files `git archive` does not carry — within a minute
+of being added.
