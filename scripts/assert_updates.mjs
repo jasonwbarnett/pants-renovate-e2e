@@ -155,9 +155,18 @@ const report = JSON.parse(readFileSync(resolve(reportPath), "utf8"));
 const claimed = Object.values(report.repositories ?? {}).flatMap((repo) =>
   (repo.packageFiles?.pants ?? []).map((f) => f.packageFile),
 );
-// A floor, not just non-emptiness. A reference listing one of twenty-seven files
-// passes an emptiness check and then has a twenty-seventh of its discriminating
-// power -- the same fault as empty-compared-with-empty, one notch above zero.
+// A floor on the reference's shape, not just non-emptiness: a reference listing
+// one file of many passes an emptiness check and then has almost none of its
+// discriminating power -- the same fault as empty-compared-with-empty, one notch
+// above zero. The number is interpolated into the failure rather than spelled in
+// this comment, because a spelled number is what drifted from
+// `EXPECTED_DEGRADED_UPDATES` once already, and this one cannot be derived: the
+// post-supersedes count is not computable without running supersedes.
+//
+// The floor bounds the reference's shape and the subset check below bounds its
+// membership, so what is left is a same-size substitution -- and one only
+// survives if the substitute is already a file this script tests, which leaves
+// nothing untested for it to hide.
 // Reachable through a stale report from a bed with fewer fixtures, or a partial
 // run: we have already seen extraction exit 0 having written no package files at
 // all, and a partial population is no less likely than an empty one.
