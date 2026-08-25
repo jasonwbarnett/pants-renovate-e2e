@@ -132,13 +132,33 @@ let degradedChecked = 0;
 // Only this direction is asserted. A file this script tests and the run ignores
 // costs someone an hour; a file the run updates and this script never tests
 // costs a regression.
+//
+// And only this much of the claim surface. `claimed` is what survives
+// supersedes, so a file this manager wrongly claims and another manager takes
+// back is invisible here -- that direction is `assert_extraction.py`'s
+// `FORBIDDEN` list. The two scripts divide the space and neither bounds it
+// alone.
 const report = JSON.parse(readFileSync(resolve(reportPath), "utf8"));
 const claimed = Object.values(report.repositories ?? {}).flatMap((repo) =>
   (repo.packageFiles?.pants ?? []).map((f) => f.packageFile),
 );
-if (!claimed.length) {
+// A floor, not just non-emptiness. A reference listing one of twenty-seven files
+// passes an emptiness check and then has a twenty-seventh of its discriminating
+// power -- the same fault as empty-compared-with-empty, one notch above zero.
+// Reachable through a stale report from a bed with fewer fixtures, or a partial
+// run: we have already seen extraction exit 0 having written no package files at
+// all, and a partial population is no less likely than an empty one.
+//
+// Deliberately not compared for equality with this script's own count, though
+// the two are close. `claimed` is the population *after* supersedes, so
+// `poetry-locked/pyproject.toml` sits under `poetry` and is absent from it,
+// while this script's own extraction has no supersedes step and includes it.
+// Two sets of nearly the same size with different members; equality would fail
+// the first time supersedes moved one more file.
+const EXPECTED_CLAIMED = 27;
+if (claimed.length < EXPECTED_CLAIMED) {
   failures.push(
-    `the report at ${reportPath} lists no pants package files, so this comparison tests nothing`,
+    `the report at ${reportPath} lists ${claimed.length} pants package files, expected at least ${EXPECTED_CLAIMED}: a truncated reference cannot fail`,
   );
 }
 const known = new Set([
