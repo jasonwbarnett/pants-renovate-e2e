@@ -100,13 +100,21 @@ which is what the earlier name-based check got wrong.
 
 The assertions here are checked by breaking the manager one change at a time and
 requiring that at least one of the two scripts goes red. The cases live in
-`mutations.py` (12) and `mutations2.py` (34) in the harness alongside this
-repository, so the count can be checked rather than taken: 46 changes are tested
-and 45 are caught. The one that is not:
+`mutations.py` (12), `mutations2.py` (34) and `mutations3.py` (1) in the harness
+alongside this repository, so the count can be checked rather than taken: 47
+changes are tested and 46 are caught. The one that is not:
 
 - **Widening the default `managerFilePatterns`.** This is not a gap: a wider
   default only hands the manager more files, and a file that is not a build file
   parses to no targets and produces nothing. There is no defect to catch.
+
+The newest case is worth naming because of where it was invisible.
+`recordedReading` honouring the `'source'` reading and dropping `'buildFile'`
+passes the manager's entire unit suite, and this repository catches it -- the
+custom-build-file-name fixture is read by its record, so its update fails. That
+is the opposite of the direction these scripts usually help in, and it is the
+argument for keeping a real repository in the loop rather than only unit tests.
+The unit suite now covers that arm too.
 
 Four earlier entries have left this list, each because a route was found to the
 code they broke rather than because the code was removed — the pattern-list
