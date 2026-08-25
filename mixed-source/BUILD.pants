@@ -1,0 +1,6 @@
+# A conventionally-named source that happens to contain a line parsing as a
+# target. The extension is asked before the content for exactly this reason: a
+# `.txt` is never a build file, so consulting the content could only make the
+# confirmation disagree with extraction -- and then a correct edit is thrown
+# away with no warning at all.
+python_requirements(name="reqs", source="pins.txt")

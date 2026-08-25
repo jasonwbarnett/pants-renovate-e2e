@@ -125,6 +125,15 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
         "project.dependencies",
         ">=1.0",
     ),
+    # a conventionally-named source whose text reads like a build file: the
+    # extension settles it, so this one is not record-dependent
+    (
+        "pants",
+        "mixed-source/pins.txt",
+        "executing",
+        "python_requirements",
+        "==2.0.1",
+    ),
     # a source whose text reads like a build file: only the recorded reading
     # routes it correctly, so this is what makes that record load-bearing
     (
@@ -216,6 +225,7 @@ FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
     ("pants", "expression-requirements/BUILD.pants", "shapely"),
     # the target-looking line inside a source is not a target
     ("pants", "record-decides/constraints", "decoy"),
+    ("pants", "mixed-source/pins.txt", "phantom"),
     # a fenced example in a documentation file is not a target, and the file it
     # names is not a source
     ("pants", "docs/BUILD.md", "flask"),

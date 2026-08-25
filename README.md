@@ -80,8 +80,8 @@ which is what the earlier name-based check got wrong.
 ## What a green run does not prove
 
 The assertions here are checked by breaking the manager one change at a time and
-requiring that at least one of the two scripts goes red. 44 such changes are
-tested; 43 are caught. The one that is not:
+requiring that at least one of the two scripts goes red. 46 such changes are
+tested; 45 are caught. The one that is not:
 
 - **Widening the default `managerFilePatterns`.** This is not a gap: a wider
   default only hands the manager more files, and a file that is not a build file
@@ -118,9 +118,16 @@ that invalidates a cached extraction covers a manager's tests, not its
 implementation, so an implementation-only change can pair new code with
 dependencies extracted by the old code — which have no recorded reading. Every
 update here is therefore applied twice, once with that record and once without,
-and both have to land. The exception is listed in `RECORD_DEPENDENT`: one source
-whose text genuinely reads like a build file, which nothing but the record can
-route.
+and both have to land. The set of files that cannot survive it is
+**derived and asserted** rather than listed: a file is record-dependent when
+reading it without the record disagrees with how extraction read it, which is a
+computation, and a hand-written list can only be wrong in the direction that
+hides a gap. Today that set has one member — a source with no extension at all
+whose text reads like a build file, which no rule about names can classify.
+
+The degraded runs have a floor of their own, for the same reason the recorded
+ones do: without it, widening that set to everything would leave this script
+green with no degraded coverage at all.
 
 The two mutations that break `supersedes.ts` — ignoring `cannotUpdate`, and
 inferring it from the dependencies the way an earlier version did — are only

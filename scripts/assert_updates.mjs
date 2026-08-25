@@ -126,6 +126,7 @@ for (const proseFile of proseFiles) {
 
 const failures = [];
 let checked = 0;
+let degradedChecked = 0;
 
 /** A new value of the same shape, so the range stays valid. */
 function bump(currentValue) {
@@ -144,12 +145,42 @@ function bump(currentValue) {
 // Every dependency this repository declares and Renovate can update. A
 // regression that stops extracting some of them would otherwise leave this
 // script testing less and still exiting zero.
-// Files whose content says the wrong thing about what they are, so the recorded
-// reading is the only thing that routes them. Listed rather than inferred, so
-// that a file joining this list is a deliberate decision.
-const RECORD_DEPENDENT = ["record-decides/constraints"];
+// Files the recorded reading is the only thing that can route: their name says
+// nothing (no extension at all) and their content says the wrong thing. Asserted
+// rather than used as a skip list, so a file joining the set fails here instead
+// of quietly losing its degraded coverage.
+const EXPECTED_RECORD_DEPENDENT = ["record-decides/constraints"];
 
-const EXPECTED_UPDATES = 34;
+const EXPECTED_UPDATES = 35;
+
+// One fewer: the single record-dependent file's dependency cannot be updated
+// without the record, by construction.
+const EXPECTED_DEGRADED_UPDATES = 34;
+
+// A file is record-dependent when reading it without the record disagrees with
+// how extraction read it. Computed rather than declared: the condition is
+// mechanical, and a list can only be wrong in the direction that hides a gap.
+const recordDependent = [];
+for (const pf of packageFiles) {
+  const content = readFileSync(resolve(repoDir, pf.packageFile), "utf8");
+  const degraded = await extractPackageFile(content, pf.packageFile, {
+    ...managerConfig,
+    packageFile: pf.packageFile,
+  });
+  const recorded = pf.deps.map((d) => d.depName).sort();
+  const guessed = (degraded?.deps ?? []).map((d) => d.depName).sort();
+  if (JSON.stringify(recorded) !== JSON.stringify(guessed)) {
+    recordDependent.push(pf.packageFile);
+  }
+}
+if (
+  JSON.stringify(recordDependent.sort()) !==
+  JSON.stringify(EXPECTED_RECORD_DEPENDENT)
+) {
+  failures.push(
+    `record-dependent files are ${JSON.stringify(recordDependent)}, expected ${JSON.stringify(EXPECTED_RECORD_DEPENDENT)}`,
+  );
+}
 
 for (const packageFile of packageFiles) {
   const original = readFileSync(
@@ -182,16 +213,17 @@ for (const packageFile of packageFiles) {
       // The same update from a dependency with no recorded reading, which is
       // the shape a warm extract cache replays: the fingerprint that
       // invalidates it covers this manager's tests and not its implementation.
-      // Every file has to survive that except the one whose content genuinely
-      // says the wrong thing, which nothing but the record can route.
-      const { managerData: _noRecord, ...withoutRecord } = dep;
-      if (!RECORD_DEPENDENT.includes(packageFile.packageFile)) {
+      // Every file has to survive that except the ones nothing but the record
+      // can route, which are derived below rather than assumed.
+      //
+      // `managerData: undefined` is what strips the record. Spreading a copy of
+      // the dependency without the key cannot, because `upgrade` is built with
+      // `...dep` and already has it.
+      if (!recordDependent.includes(packageFile.packageFile)) {
+        degradedChecked += 1;
         try {
           const degraded = await doAutoReplace(
-            filterConfig(
-              { ...upgrade, ...withoutRecord, managerData: undefined },
-              "branch",
-            ),
+            filterConfig({ ...upgrade, managerData: undefined }, "branch"),
             original,
             false,
           );
@@ -278,6 +310,16 @@ console.log(
 if (checked !== EXPECTED_UPDATES) {
   failures.push(
     `applied ${checked} updates, expected ${EXPECTED_UPDATES}: a dependency this repository declares is no longer being updated`,
+  );
+}
+
+// The degraded runs need a floor of their own. Without one, skipping every one
+// of them -- by widening the record-dependent set, or by getting the condition
+// wrong in any other way -- leaves this script green with no degraded coverage
+// at all.
+if (degradedChecked !== EXPECTED_DEGRADED_UPDATES) {
+  failures.push(
+    `applied ${degradedChecked} updates without the recorded reading, expected ${EXPECTED_DEGRADED_UPDATES}`,
   );
 }
 
