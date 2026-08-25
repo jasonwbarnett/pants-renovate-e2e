@@ -78,8 +78,25 @@ const EXPECTED_DEGRADED_UPDATES =
 const { getMatchingFiles } = await import(
   `${renovateSrc}/lib/workers/repository/extract/file-match.ts`
 );
+// `includePaths` and `ignorePaths` from the same place Renovate takes them, not
+// hardcoded: `ignorePaths` defaults to `**/node_modules/**` and
+// `**/bower_components/**`, so passing `[]` made this population wider than the
+// run's. That direction is safe -- a false red rather than a false green -- but
+// it costs the property this derivation exists for, that the two populations are
+// provably the same one.
+const { getOptions } = await import(
+  `${renovateSrc}/lib/config/options/index.ts`
+);
+const optionDefault = (name) =>
+  getOptions().find((option) => option.name === name).default;
+
 const buildFiles = getMatchingFiles(
-  { ...managerConfig, manager: "pants", includePaths: [], ignorePaths: [] },
+  {
+    ...managerConfig,
+    manager: "pants",
+    includePaths: optionDefault("includePaths"),
+    ignorePaths: optionDefault("ignorePaths"),
+  },
   execFileSync("git", ["ls-files"], { cwd: repoDir, encoding: "utf8" })
     .split("\n")
     .filter(Boolean),
