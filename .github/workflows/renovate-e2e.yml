@@ -32,7 +32,10 @@ on:
 
 env:
   RENOVATE_REPO: altana-ai/renovate
-  RENOVATE_REF: ${{ inputs.renovate_ref || 'feat/pants-manager' }}
+  # A repository_dispatch carries no commit of its own, so the sender says
+  # which one it meant. Without it a dispatch fired for commit A tests
+  # whatever HEAD is when the runner starts.
+  RENOVATE_REF: ${{ inputs.renovate_ref || github.event.client_payload.sha || 'feat/pants-manager' }}
 
 permissions:
   contents: read
@@ -76,7 +79,13 @@ jobs:
           RENOVATE_REPORT_TYPE: file
           RENOVATE_REPORT_PATH: ${{ github.workspace }}/report.json
           LOG_LEVEL: debug
-        run: node .renovate-src/lib/renovate.ts --dry-run=extract
+        run: |
+          # A run that cannot load the manager exits 0 and writes nothing, so a
+          # report left by an earlier step or a cached workspace would be
+          # asserted against instead.
+          rm -f "$RENOVATE_REPORT_PATH"
+          node .renovate-src/lib/renovate.ts --dry-run=extract
+          test -s "$RENOVATE_REPORT_PATH"
 
       - name: Assert every Pants code path was extracted
         run: python3 scripts/assert_extraction.py report.json

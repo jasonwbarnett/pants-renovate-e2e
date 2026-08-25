@@ -37,6 +37,13 @@
         "hashed-unmatched/**"
       ],
       "enabled": false
+    },
+    {
+      "description": "A documentation file that the default patterns match. Nothing in it may be reported, so nothing in it may be updated either.",
+      "matchFileNames": [
+        "docs/**"
+      ],
+      "enabled": false
     }
   ],
   "separateMinorPatch": true,

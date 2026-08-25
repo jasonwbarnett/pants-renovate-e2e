@@ -148,6 +148,12 @@ FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
     ("pants", "expression-requirements/BUILD.pants", "foo"),
     ("pants", "expression-requirements/BUILD.pants", "httpx"),
     ("pants", "expression-requirements/BUILD.pants", "starlette"),
+    ("pants", "expression-requirements/BUILD.pants", "django"),
+    ("pants", "expression-requirements/BUILD.pants", "pyarrow"),
+    # a fenced example in a documentation file is not a target, and the file it
+    # names is not a source
+    ("pants", "docs/BUILD.md", "flask"),
+    ("pants", "docs/requirements.txt", "doc-only-dep"),
 ]
 
 # (manager, packageFile) pairs that must NOT appear.
@@ -179,6 +185,23 @@ FORBIDDEN: list[tuple[str, str]] = [
 def main(report_path: str) -> int:
     report = json.loads(Path(report_path).read_text())
     repositories = report.get("repositories", {})
+
+    # A run that cannot load the manager at all still exits 0 and writes no
+    # report, so without this guard these assertions pass against the report an
+    # earlier run left behind. Refuse a report that describes nothing rather
+    # than trusting it.
+    total_deps = sum(
+        len(package_file.get("deps") or [])
+        for repo in repositories.values()
+        for package_files in (repo.get("packageFiles") or {}).values()
+        for package_file in package_files
+    )
+    if not repositories or not total_deps:
+        print(
+            f"the report at {report_path} describes {len(repositories)} repositories "
+            f"and {total_deps} dependencies -- did the run actually happen?"
+        )
+        return 1
 
     found: set[tuple[str, str, str, str]] = set()
     raw_deps: list[dict] = []

@@ -67,8 +67,8 @@ which is what the earlier name-based check got wrong.
 ## What a green run does not prove
 
 The assertions here are checked by breaking the manager one change at a time and
-requiring that at least one of the two scripts goes red. 29 such changes are
-tested; 27 are caught. The two that are not:
+requiring that at least one of the two scripts goes red. 32 such changes are
+tested; 30 are caught. The two that are not:
 
 - **Reading the pattern list as a whole instead of one pattern at a time.**
   This only shows up when the list holds a negated pattern, and a negated
@@ -81,3 +81,10 @@ tested; 27 are caught. The two that are not:
 
 Both are stated here rather than left implicit, because the point of this
 repository is that a green run means something specific.
+
+A green run also used to be possible with no run at all: `renovate
+--dry-run=extract` exits 0 when the manager cannot be loaded, and writes no
+report, so the assertions were checked against whatever report an earlier run
+had left behind. The workflow now deletes the report before the run and requires
+a non-empty one after it, and `assert_extraction.py` refuses a report that
+describes no dependencies rather than trusting it.

@@ -14,7 +14,7 @@ const repoDir = process.cwd();
 const { GlobalConfig } = await import(
   `${renovateSrc}/lib/config/global.ts`
 );
-const { extractAllPackageFiles } = await import(
+const { extractAllPackageFiles, extractPackageFile } = await import(
   `${renovateSrc}/lib/modules/manager/pants/index.ts`
 );
 const { doAutoReplace } = await import(
@@ -50,6 +50,36 @@ const buildFiles = execFileSync(
 
 const packageFiles = await extractAllPackageFiles(managerConfig, buildFiles);
 
+// Prose that the patterns match has to be refused by the single-file entry
+// point as well, not only skipped by the walk. That entry point is the
+// auto-replace confirmation, and it is the only place a difference between the
+// two shows up: a file the walk skips and this one reads is a file Renovate
+// would offer to edit and then fail on.
+const proseFiles = execFileSync(
+  'git',
+  ['ls-files', '*BUILD.md', '*BUILD.rst', '*BUILD.markdown'],
+  { cwd: repoDir, encoding: 'utf8' },
+)
+  .split('\n')
+  .filter(Boolean);
+
+if (!proseFiles.length) {
+  failures.push('no prose build file in the repository: this check tests nothing');
+}
+
+for (const proseFile of proseFiles) {
+  const content = readFileSync(resolve(repoDir, proseFile), 'utf8');
+  const res = await extractPackageFile(content, proseFile, managerConfig);
+  if (res !== null) {
+    failures.push(
+      `${proseFile}: read as a build file, got ${JSON.stringify(res.deps?.map((d) => d.depName))}`,
+    );
+  }
+}
+
+const failures = [];
+let checked = 0;
+
 /** A new value of the same shape, so the range stays valid. */
 function bump(currentValue) {
   if (/^==/.test(currentValue)) {
@@ -69,8 +99,6 @@ function bump(currentValue) {
 // script testing less and still exiting zero.
 const EXPECTED_UPDATES = 31;
 
-const failures = [];
-let checked = 0;
 
 for (const packageFile of packageFiles) {
   const original = readFileSync(resolve(repoDir, packageFile.packageFile), 'utf8');

@@ -39,3 +39,18 @@ python_requirement(
     name="subscripted",
     requirements=["starlette==1.0.0"[0:14]],
 )
+
+# A call's arguments are not requirements. Reading into the call would report a
+# pin on a package this target never declares.
+python_requirement(
+    name="callarg",
+    requirements=[shared_pin("django==4.2.0")],
+)
+
+# A parenthesised run of literals cannot be told apart from a call's arguments
+# by this parser, so it is reported as nothing rather than guessed at. Asserted
+# so that it stays deliberate.
+python_requirement(
+    name="grouped",
+    requirements=[("pyarrow==14.0.0")],
+)
