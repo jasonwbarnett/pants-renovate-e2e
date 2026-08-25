@@ -101,6 +101,14 @@ EXPECTED: list[tuple[str, str, str, str, str | None]] = [
     # a hashed file `pip_requirements` does not claim by name is reported here,
     # skipped, rather than left to nobody
     ("pants", "hashed-unmatched/constraints.txt", "six", "python_requirements", "==1.16.0"),
+    # a source whose extension differs only in case
+    (
+        "pants",
+        "upper-ext-source/pyproject.TOML",
+        "sortedcollections",
+        "dependencies",
+        "^2.1.0",
+    ),
     # a build file whose name looks like a requirements file
     ("pants", "custom-build-ext/app.build.toml", "rich", "python_requirement", "==13.4.0"),
     # ...and a source whose name a configured pattern also covers, which is
@@ -129,6 +137,9 @@ DEP_FIELDS: dict[tuple[str, str], dict[str, object]] = {
     },
     # a hashed file this manager cannot rewrite is reported, and skipped
     ("hashed-unmatched/constraints.txt", "six"): {"skipReason": "unsupported"},
+    ("upper-ext-source/pyproject.TOML", "sortedcollections"): {
+        "managerData": {"nestedVersion": False, "pantsReadAs": "source"},
+    },
     # a split specifier has no text to anchor a replacement on
     ("split-specifier/BUILD.pants", "sortedcontainers"): {
         "skipReason": "unsupported",
@@ -170,6 +181,12 @@ FORBIDDEN_DEPS: list[tuple[str, str, str]] = [
     # names is not a source
     ("pants", "docs/BUILD.md", "flask"),
     ("pants", "docs/requirements.txt", "doc-only-dep"),
+    # ...whatever the case of the extension
+    ("pants", "docs/BUILD.MD", "tornado"),
+    # ...and whatever document format it is
+    ("pants", "docs/BUILD.adoc", "uvloop"),
+    # ...and a target naming prose as its source does not make it one
+    ("pants", "prose-source/notes.md", "nbformat"),
 ]
 
 # (manager, packageFile) pairs that must NOT appear.
@@ -344,6 +361,24 @@ def main(report_path: str) -> int:
         failures.append(
             f"expected 2 pytest dependencies in inline/BUILD.pants, found {pytest_pins}"
         )
+
+    # An entry every dependency of which is skipped has to say so, or Renovate
+    # drops the entry of the manager that can maintain the file.
+    for entry in package_file_entries:
+        if entry["manager"] != "pants":
+            continue
+        all_skipped = bool(entry.get("deps")) and all(
+            d.get("skipReason") for d in entry["deps"]
+        )
+        if all_skipped and not entry.get("cannotUpdate"):
+            failures.append(
+                f"{entry['packageFile']}: every dependency is skipped but the entry "
+                "does not say it cannot be updated"
+            )
+        if entry.get("cannotUpdate") and not all_skipped:
+            failures.append(
+                f"{entry['packageFile']}: says it cannot be updated but reports a live dependency"
+            )
 
     # This manager has no `updateArtifacts`, so it must never claim a lock file.
     for manager, package_file, lock_files in lock_claims:

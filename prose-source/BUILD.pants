@@ -1,0 +1,5 @@
+# A target naming prose as its generator source. Pants would read the file --
+# `python_requirements` routes by basename and reads whatever it is given -- but
+# a file named like a document is overwhelmingly more likely to be one, and
+# reading it is what produced pull requests against documentation.
+python_requirements(name="reqs", source="notes.md")

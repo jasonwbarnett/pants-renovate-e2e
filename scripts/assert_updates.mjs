@@ -74,6 +74,42 @@ if (!proseFiles.length) {
   );
 }
 
+// A branch config describes its first upgrade, so a branch spanning a build file
+// and a source hands the same `managerData` to both. Each file has to be read
+// correctly even when the config it is given is about the other one.
+const buildFileDeps = packageFiles.find((f) =>
+  f.deps.some((d) => d.managerData?.pantsReadAs === 'buildFile'),
+);
+const sourceDeps = packageFiles.find((f) =>
+  f.deps.some((d) => d.managerData?.pantsReadAs === 'source'),
+);
+
+if (!buildFileDeps || !sourceDeps) {
+  failures.push(
+    'no build-file and source pair to cross-check: this check tests nothing',
+  );
+} else {
+  for (const [own, foreign] of [
+    [buildFileDeps, sourceDeps],
+    [sourceDeps, buildFileDeps],
+  ]) {
+    const content = readFileSync(resolve(repoDir, own.packageFile), 'utf8');
+    const foreignConfig = {
+      ...managerConfig,
+      ...foreign.deps[0],
+      packageFile: foreign.packageFile,
+    };
+    const res = await extractPackageFile(content, own.packageFile, foreignConfig);
+    const got = (res?.deps ?? []).map((d) => d.depName).sort();
+    const want = own.deps.map((d) => d.depName).sort();
+    if (JSON.stringify(got) !== JSON.stringify(want)) {
+      failures.push(
+        `${own.packageFile}: read as ${JSON.stringify(got)} when handed the config for ${foreign.packageFile}, expected ${JSON.stringify(want)}`,
+      );
+    }
+  }
+}
+
 for (const proseFile of proseFiles) {
   const content = readFileSync(resolve(repoDir, proseFile), "utf8");
   const res = await extractPackageFile(content, proseFile, managerConfig);
@@ -104,7 +140,7 @@ function bump(currentValue) {
 // Every dependency this repository declares and Renovate can update. A
 // regression that stops extracting some of them would otherwise leave this
 // script testing less and still exiting zero.
-const EXPECTED_UPDATES = 31;
+const EXPECTED_UPDATES = 32;
 
 for (const packageFile of packageFiles) {
   const original = readFileSync(

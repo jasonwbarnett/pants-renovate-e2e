@@ -1,0 +1,6 @@
+[tool.poetry]
+name = "upper-ext"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+sortedcollections = "^2.1.0"

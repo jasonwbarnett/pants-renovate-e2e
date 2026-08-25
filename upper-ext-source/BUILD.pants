@@ -1,0 +1,4 @@
+# The extension is compared case-insensitively. Under the old comparison this
+# file fell past every extension check and was read by the requirements parser,
+# which found nothing -- and both entry points agreed, so nothing failed.
+poetry_requirements(name="poetry", source="pyproject.TOML")

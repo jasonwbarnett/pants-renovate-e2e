@@ -1,0 +1,9 @@
+= Adding a dependency
+
+Prose is recognised by extension, from a list, so the list needs more than
+markdown in it for that to be tested.
+
+[source,python]
+----
+python_requirement(name="asciidoc-example", requirements=["uvloop==0.19.0"])
+----
