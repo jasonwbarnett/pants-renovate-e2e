@@ -7,5 +7,5 @@
 # the other.
 python_requirement(
     name="wcwidth",
-    requirements=["wcwidth==0.2.13"],
+    requirements=["wcwidth==0.2.14"],
 )
