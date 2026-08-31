@@ -1,3 +1,3 @@
 # A pip requirements file under a `.toml` name: Pants reads any source that
 # is not a `pyproject.toml` with its requirements parser.
-zipp==3.8.0
+zipp==3.23.1
