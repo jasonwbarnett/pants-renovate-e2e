@@ -11,6 +11,6 @@ python_requirement(
 # Pants accepts any iterable of strings, not only a list.
 python_requirement(
     name="tuple",
-    requirements=("wrapt==1.14.0",),
+    requirements=("wrapt==2.4.0",),
     resolve="tools",
 )
