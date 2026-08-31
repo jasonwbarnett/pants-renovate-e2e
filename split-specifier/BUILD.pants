@@ -9,5 +9,5 @@ python_requirement(
 # anchor for the target above.
 python_requirement(
     name="decoy",
-    requirements=["cachetools>=1.0,<2.0"],
+    requirements=["cachetools>=7.1,<7.2"],
 )
