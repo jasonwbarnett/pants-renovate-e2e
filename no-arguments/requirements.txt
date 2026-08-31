@@ -1,2 +1,2 @@
 # No `name`, no `source`: the target defaults to this file.
-markupsafe==2.0.0
+markupsafe==2.1.5
