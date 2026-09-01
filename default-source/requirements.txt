@@ -1,4 +1,4 @@
 --index-url https://pypi.org/simple
 # A plain pip requirements file.
-charset-normalizer==3.0.0
+charset-normalizer==3.0.1
 idna>=3.0,<4
