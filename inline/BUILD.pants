@@ -26,13 +26,13 @@ python_requirement(
 # string. Renovate has to update each occurrence on its own.
 python_requirement(
     name="pytest-app",
-    requirements=["pytest==7.0.0"],
+    requirements=["pytest==7.0.1"],
     resolve="app",
 )
 
 python_requirement(
     name="pytest-tools",
-    requirements=["pytest==7.0.0"],
+    requirements=["pytest==7.0.1"],
     resolve="tools",
 )
 
